@@ -42,5 +42,8 @@ in the v3 reader (https://github.com/brettviren/python-keepass).
 For v4 support reading the original Keepass2 C# source was used as inspiration
 (http://keepass.info).
 
+Keepass 2.x uses Salsa20 to protect data in XML. Currently puresalsa20 is used
+(http://www.tiac.net/~sw/2010/02/PureSalsa20/index.html).
+
 Thanks to all others who came before them are in order.
 
