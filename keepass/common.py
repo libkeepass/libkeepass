@@ -150,10 +150,10 @@ def stream_unpack(stream, offset, length, typecode='I'):
 def read_signature(stream):
     sig1 = stream_unpack(stream, 0, 4)
     sig2 = stream_unpack(stream, None, 4)
-    ver_minor = stream_unpack(stream, None, 2, 'h')
-    ver_major = stream_unpack(stream, None, 2, 'h')
-    return (sig1, sig2, ver_major, ver_minor)
-
+    #ver_minor = stream_unpack(stream, None, 2, 'h')
+    #ver_major = stream_unpack(stream, None, 2, 'h')
+    #return (sig1, sig2, ver_major, ver_minor)
+    return (sig1, sig2)
 
 
 
