@@ -40,22 +40,28 @@ import keepass
 class TestModule(unittest.TestCase):
 
     def test_get_kdb_class(self):
-        self.assertIsNotNone(keepass.get_kdb_class([0x9AA2D903, 0xB54BFB67, 
-            3, 0]))
-        self.assertEquals(keepass.get_kdb_class([0x9AA2D903, 0xB54BFB67, 
-            3, 0]), keepass.kdb4.KDB4Reader)
+        # v3
+        self.assertIsNotNone(keepass.get_kdb_reader([0x9AA2D903, 0xB54BFB65]))
+        self.assertEquals(keepass.get_kdb_reader([0x9AA2D903, 0xB54BFB65]), 
+            keepass.kdb3.KDB3Reader)
+        # v4
+        self.assertIsNotNone(keepass.get_kdb_reader([0x9AA2D903, 0xB54BFB67]))
+        self.assertEquals(keepass.get_kdb_reader([0x9AA2D903, 0xB54BFB67]), 
+            keepass.kdb4.KDB4Reader)
         
-        with self.assertRaisesRegexp(IOError, "KeePass 1.x not supported."):
-            keepass.get_kdb_class([0x9AA2D903, 0xB54BFB66, 3, 0])
-        #with self.assertRaisesRegexp(IOError, "KeePass pre2.x not supported."):
-        #    keepass.get_kdb_class([0x9AA2D903, 0xB54BFB65, 3, 0])
-
-        with self.assertRaisesRegexp(IOError, "Unknown file signature."):
-            keepass.get_kdb_class([0x9AA2D903, 0xB54BFB60, 3, 0])
-        with self.assertRaisesRegexp(IOError, "Unknown file signature."):
-            keepass.get_kdb_class([0x9AA2D900, 0xB54BFB65, 3, 0])
-        with self.assertRaisesRegexp(IOError, "Unknown file signature."):
-            keepass.get_kdb_class([0x9AA2D900, 0xB54BFB60, 3, 0])
+        # mythical pre2.x signature
+        with self.assertRaisesRegexp(IOError, "Unknown sub signature."):
+            keepass.get_kdb_reader([0x9AA2D903, 0xB54BFB66, 3, 0])
+        
+        # unknown sub signature
+        with self.assertRaisesRegexp(IOError, "Unknown sub signature."):
+            keepass.get_kdb_reader([0x9AA2D903, 0xB54BFB60, 3, 0])
+        # valid sub signature, unknown base signature
+        with self.assertRaisesRegexp(IOError, "Unknown base signature."):
+            keepass.get_kdb_reader([0x9AA2D900, 0xB54BFB65, 3, 0])
+        # unknown sub signature, unknown base signature
+        with self.assertRaisesRegexp(IOError, "Unknown base signature."):
+            keepass.get_kdb_reader([0x9AA2D900, 0xB54BFB60, 3, 0])
 
 class TestCommon(unittest.TestCase):
 
@@ -77,9 +83,11 @@ class TestCommon(unittest.TestCase):
 class TestKDB4(unittest.TestCase):
 
     def test_open_file(self):
+        # created with KeePassX 0.4.3
+        absfile2 = os.path.abspath('tests/sample7_kpx.kdb')
+        # created with KeePass 2.19 on linux
         filename1 = 'sample1.kdbx'
         absfile1 = os.path.abspath('tests/'+filename1)
-        absfile2 = os.path.abspath('tests/old1.kdb')
         absfile3 = os.path.abspath('tests/sample2.kdbx')
         keyfile3 = os.path.abspath('tests/sample2_keyfile.key')
         absfile4 = os.path.abspath('tests/sample3.kdbx')
@@ -105,7 +113,6 @@ class TestKDB4(unittest.TestCase):
                 pass
 
         # old kdb file
-        #with self.assertRaisesRegexp(IOError, "KeePass pre2.x not supported."):
         with keepass.open(absfile2, password="asdf") as kdb:
             self.assertIsNotNone(kdb)
 
