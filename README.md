@@ -35,9 +35,9 @@ The v4 reader supports passwords and key-file protection.
 Example
 -------
 
-::
-
     import keepass
+    
+    filename = "input.kdbx"
     with keepass.open(filename, password='secret', keyfile='putty.exe') as kdb:
         print kdb.pretty_print()
         # or use kdb.obj_root to access the element tree
@@ -55,5 +55,5 @@ For v4 support reading the original Keepass2 C# source was used as inspiration
 Keepass 2.x uses Salsa20 to protect data in XML. Currently puresalsa20 is used
 (http://www.tiac.net/~sw/2010/02/PureSalsa20/index.html) and included.
 
-Thanks to all others who came before them are in order.
+Thanks to them and all others who came before are in order.
 
