@@ -6,13 +6,12 @@ import struct
 import hashlib
 import base64
 
-
 from crypto import xor, sha256, aes_cbc_decrypt
 from crypto import transform_key, unpad
 
 from common import load_keyfile, stream_unpack
-
 from common import KDBFile, HeaderDict
+
 from reader import HashedBlockReader
 
 
@@ -21,13 +20,17 @@ class KDB3Header(HeaderDict):
         # encryption type/flag
         'Flags': 0,
         'Version': 1,
-        # seed to hash with the transformed master key
+        # seed to hash the transformed master key
         'MasterSeed': 2,
         'EncryptionIV': 3,
+        # fields describing data structure
         'Groups': 4,
         'Entries': 5,
+        # hash of the whole decrypted data
         'ContentHash': 6,
+        # seed for key transformation
         'MasterSeed2': 7,
+        # number of transformation rounds
         'KeyEncRounds': 8,
         }
 
@@ -78,12 +81,11 @@ class KDB3File(KDBFile):
             length = self.header.lengths[field_id]
             data = self._read_buffer(None, length, '{}s'.format(length))
             self.header[field_id] = data
-            #print field_id, self.header[field_id].val, self.header[field_id].raw.encode('hex')
-
+            
             field_id += 1
             if field_id > 8:
                 break
-
+        
         # this is impossible, as long as noone messes with self.header.lengths
         if self.header_length != self._buffer.tell():
             raise IOError('Unexpected header length! What did you do!?')
@@ -120,7 +122,7 @@ class KDB3File(KDBFile):
         #TODO python-keepass does not support keyfiles, there seems to be a
         # different way to hash those keys in kdb3
         composite = self.keys[0]
-
+        
         tkey = transform_key(composite, 
             self.header['MasterSeed2'].raw, 
             self.header['KeyEncRounds'].val)
@@ -129,7 +131,7 @@ class KDB3File(KDBFile):
 
 class KDBExtension:
     """
-    The KDB3 payload is a ... #TODO
+    The KDB3 payload is a ... #TODO ...
     """
     def __init__(self):
         pass

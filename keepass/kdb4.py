@@ -71,6 +71,14 @@ class KDB4File(KDBFile):
         Parses the header and write the values into self.header. Also sets
         self.header_length.
         """
+        # KeePass 2.07 has version 1.01,
+        # 2.08 has 1.02,
+        # 2.09 has 2.00, 2.10 has 2.02, 2.11 has 2.04,
+        # 2.15 has 3.00.
+        # The first 2 bytes are critical (i.e. loading will fail, if the
+        # file version is too high), the last 2 bytes are informational.
+        #TODO implement version check
+        
         # the first header field starts at byte 12 after the signature
         self._buffer.seek(12)
         
