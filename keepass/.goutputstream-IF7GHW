@@ -1,0 +1,270 @@
+
+import os, sys, struct
+import hashlib
+import zlib
+import io, StringIO
+import logging
+import uuid
+
+from contextlib import contextmanager
+from collections import namedtuple
+
+from Crypto.Cipher import AES
+
+from reader import HashedBlockReader
+
+
+encryption_flags = {1: 'SHA2', 2: 'AES', 4: 'ArcFour', 8: 'TwoFish'}
+
+
+@contextmanager
+def open_kdb(filename, **credentials):
+    try:
+        stream = io.open(filename, 'rb')
+        signature = read_file_signature(stream)
+        cls = get_kdb_class(signature)
+        kdb = cls(stream, **credentials)
+        stream.close()
+        yield kdb
+        kdb.close()
+    except:
+        raise
+        kdb.close()
+        raise
+
+def get_kdb_class(sig):
+    #   KeePass 2.07 has version 1.01, 
+    #   2.08 has 1.02,
+    #   2.09 has 2.00, 2.10 has 2.02, 2.11 has 2.04,
+    #   2.15 has 3.00.
+    #/// The first 2 bytes are critical (i.e. loading will fail, if the
+    #/// file version is too high), the last 2 bytes are informational.
+    if sig[0] == 0x9AA2D903:
+        if sig[1] == 0xB54BFB67 and sig[2] <= 3:
+            return KDB4Reader
+        elif sig[1] == 0xB54BFB66:
+            raise IOError('KeePass 1.x not supported.')
+        elif sig[1] == 0xB54BFB65:
+            raise IOError('KeePass pre2.x not supported.')
+        else:
+            #TODO add dict or something to add support for other signatures
+            pass
+    raise IOError('Unknown file signature.')
+
+def read_file_signature(stream):
+    sig1 = stream_unpack(stream, 0, 4)
+    sig2 = stream_unpack(stream, None, 4)
+    ver_minor = stream_unpack(stream, None, 2, 'h')
+    ver_major = stream_unpack(stream, None, 2, 'h')
+    return (sig1, sig2, ver_major, ver_minor)
+
+def stream_unpack(stream, offset, length, typecode='I'):
+    if offset is not None:
+        stream.seek(offset)
+    data = stream.read(length)
+    return struct.unpack('<'+typecode, data)[0]
+
+
+def make_composite(key, keyfile=None):
+    #TODO this would be the place to create a password/keyfile composite
+    #     and return the hash of that
+    return hashlib.sha256(key).digest()
+
+def transform_key(key, seed, rounds):
+    # create transform cipher with transform seed
+    cipher = AES.new(seed, AES.MODE_ECB)
+    # transform composite key rounds times
+    for n in range(0, rounds):
+        key = cipher.encrypt(key)
+    # return hash of transformed key
+    return hashlib.sha256(key).digest()
+
+def seed_key(key, seed):
+    return hashlib.sha256(seed + key).digest()
+
+def aes_cbc_decrypt(data, key, enc_iv):
+    'Decrypt payload buffer with AES CBC'
+    cipher = AES.new(key, AES.MODE_CBC, enc_iv)
+    return cipher.decrypt(data)
+
+
+HeaderField = namedtuple('HeaderField', ['raw', 'val'])
+
+class HeaderDict(dict):
+    def __init__(self, *args):
+        dict.__init__(self, args)
+
+    def __getitem__(self, key):
+        if isinstance(key, int):
+            val = dict.__getitem__(self, key)
+        else:
+            key = self.fields.get(key)
+            if key is None:
+                return None
+            val =  dict.__getitem__(self, key)
+        return val
+
+    def __setitem__(self, key, val):
+        func = self.transform.get(key)
+        dict.__setitem__(self, key, HeaderField(val, func(val)))
+
+class KDB4Header(HeaderDict):
+
+    fields = {
+        'EndOfHeader' : 0,
+        'Comment' : 1,
+        'CipherID' : 2,
+        'CompressionFlags' : 3,
+        'MasterSeed' : 4,
+        'TransformSeed' : 5,
+        'TransformRounds' : 6,
+        'EncryptionIV' : 7,
+        'ProtectedStreamKey' : 8,
+        'StreamStartBytes' : 9,
+        'InnerRandomStreamID' : 10,
+        }
+
+    #NOTE all transformations MUST return a function!
+    transform = {
+        0: lambda x: x,
+        1: lambda x: x,
+        2: lambda x: uuid.UUID(bytes=x),
+        3: lambda x: struct.unpack('<I', x)[0],
+        4: lambda x: x.encode('hex'),
+        5: lambda x: x.encode('hex'),
+        6: lambda x: struct.unpack('<q', x)[0],
+        7: lambda x: x.encode('hex'),
+        8: lambda x: x.encode('hex'),
+        9: lambda x: x.encode('hex'),
+        10: lambda x: x.encode('hex'),
+        }
+
+
+class KDB4Reader:
+    def __init__(self, stream, password):
+        self.password = hashlib.sha256(password).digest()
+        
+        # the raw/basic file handle
+        self.buffer = stream
+        # the decrypted/decompressed stream reader
+        self.reader = None
+        
+        self.header_length = None
+        self.header = KDB4Header()
+        
+        self._read_header()
+        self._decrypt()
+
+    def close(self):
+        if self.reader:
+            logging.debug('closing reader')
+            self.reader.close()
+
+    def readall(self):
+        return self.reader.readall()
+
+    def read(self, n=-1):
+        return self.reader.read(n)
+
+    def seek(self, offset, whence=io.SEEK_SET):
+        return self.reader.seek(offset, whence)
+
+    def _read_buffer(self, offset, length, typecode='I'):
+        return stream_unpack(self.buffer, offset, length, typecode)
+
+    def _read_header(self):
+        # the first header field starts at byte 12 after the signature
+        self.buffer.seek(12)
+        
+        while True:
+            # field_id is a single byte
+            field_id = self._read_buffer(None, 1, 'b')
+            
+            # field_id >10 is undefined
+            if not field_id in self.header.fields.values():
+                raise IOError('Unknown header field found.')
+            
+            # two byte (short) length of field data
+            length = self._read_buffer(None, 2, 'h')
+            if not (length > 0):
+                continue
+            
+            data = self._read_buffer(None, length, '{}s'.format(length))
+            self.header[field_id] = data
+            
+            # set position in data stream of end of header
+            if field_id == 0:
+                self.header_length = self.buffer.tell()
+                break
+
+    def _decrypt(self):
+        if self.password is None:
+            raise IOError('Password is required.')
+        
+        logging.debug('make master key')
+        self._make_master_key()
+        
+        logging.debug('decrypting')
+        # move read pointer beyond the file header
+        if self.header_length is None:
+            return None
+        self.buffer.seek(self.header_length)
+        
+        data = aes_cbc_decrypt(self.buffer.read(), self.master_key, 
+            self.header['EncryptionIV'].raw)
+        
+        if self.header['StreamStartBytes'].raw == data[:32]:
+            logging.debug('startbytes ok')
+            # skip startbytes and wrap data in a I/O stream inside a block reader
+            self.reader = HashedBlockReader(io.BytesIO(data[32:]))
+        else:
+            raise IOError('Master key invalid.')
+        
+        if self.header['CompressionFlags'].val == 1:
+            logging.debug('decompressing')
+            d = zlib.decompressobj(16+zlib.MAX_WBITS)
+            self.reader = io.BytesIO(d.decompress(self.reader.read()))
+
+    def _make_master_key(self):
+        """
+        Make the master key by (1) combining the credentials to create 
+        a composite hash, (2) transforming the hash using the transform seed
+        for a specific number of rounds and (3) finally hashing the result in 
+        combination with the master seed.
+        """
+        self.master_key = seed_key(transform_key(make_composite(self.password), 
+            self.header['TransformSeed'].raw, 
+            self.header['TransformRounds'].val), 
+            self.header['MasterSeed'].raw)
+
+
+from lxml import etree
+
+class KDBXmlReader:
+    def __init__(self, reader):
+        self.reader = reader
+        self.reader.seek(0)
+        self.tree = etree.parse(self.reader)
+        self._ = self.tree.getroot()
+        self.meta = self._[0]
+        self.root = self._[1]
+
+    def test2(self):
+        print self.tree
+        #print list(self.meta)
+        print list(self.root)
+        print list(self.root[0])
+        print list(self.root[0])[1].text
+        print list(list(self.root[0])[10])[1].text
+        print list(list(self.root[0])[11])[1].text
+        print list(list(self.root[0])[12])[1].text
+        print list(list(self.root[0])[13])[1].text
+        print list(list(self.root[0])[14])[1].text
+        print list(list(self.root[0])[15])[1].text
+        print list(list(self.root[0])[16])[1].text
+        print list(list(self.root[0])[17])[1].text
+
+        print "!"
+        
+        
+
