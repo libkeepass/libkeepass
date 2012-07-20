@@ -13,7 +13,7 @@ from crypto import transform_key
 from common import load_keyfile, stream_unpack
 
 from common import KDBFile, HeaderDict
-from reader import HashedBlockReader
+from reader import HashedBlockIO
 
 
 KDB4_SALSA20_IV = bytes('e830094b97205d2a'.decode('hex'))
@@ -118,7 +118,7 @@ class KDB4File(KDBFile):
         length = len(self.header['StreamStartBytes'].raw)
         if self.header['StreamStartBytes'].raw == data[:length]:
             # skip startbytes and wrap data in a I/O stream inside a block reader
-            self.reader = HashedBlockReader(io.BytesIO(data[length:]))
+            self.reader = HashedBlockIO(io.BytesIO(data[length:]))
         else:
             raise IOError('Master key invalid.')
         

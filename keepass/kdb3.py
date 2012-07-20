@@ -12,8 +12,6 @@ from crypto import transform_key, unpad
 from common import load_keyfile, stream_unpack
 from common import KDBFile, HeaderDict
 
-from reader import HashedBlockReader
-
 
 class KDB3Header(HeaderDict):
     fields = {

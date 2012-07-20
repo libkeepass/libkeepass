@@ -1,116 +1,97 @@
-
+# -*- coding: utf-8 -*-
 import io
 import struct
 import hashlib
-import zlib
 
+# default from KeePass2 source
+BLOCK_LENGTH = 1024*1024
+#HEADER_LENGTH = 4+32+4
 
-class HashedBlockReader:
+def read_int(stream, length):
+    try:
+        return struct.unpack('<I', stream.read(length))[0]
+    except:
+        return None
+
+class HashedBlockIO(io.BytesIO):
     """
-    The decrypted data is written in hashed blocks. Each block consists of 
+    The decrypted data is stored in hashed blocks. Each block consists of 
     a block index (4 bytes), the hash (32 bytes) and the block length (4 bytes),
     followed by the block data. The block index starts counting at 0. The 
     block hash is a SHA-256 hash of the block data. A block has a maximum
-    length of HASHED_BLOCK_LENGTH, but can be shorter.
+    length of BLOCK_LENGTH, but can be shorter.
     
-    The HashedBlockReader supports reading all data or only specific sections
-    using a combination of the seek() and read() functions. The read() function
-    only returns actual block data. Likewise the seek() function moves the
-    absolute position of read pointer within the data blocks, ignoring the
-    length of the block headers.
+    Provide a I/O stream containing the hashed block data as the `stream` when 
+    creating a HashedBlockReader. The data is verified upon initialization
+    and an IOError is raised when a hash does not match.
     
-    The reading function raise an IOError if the block hash does not match the 
-    block data.
-    
-    Provide a I/O stream like io.BytesIO containing the hashed block data as 
-    the `stream` when creating a HashedBlockReader.
+    HashedBlockReader is a subclass of io.BytesIO. The inherited read, seek, ...
+    functions shall be used to access the verified data.
     """
-    def __init__(self, stream):
-        self.stream = stream
-        self.offset = 0
+    def __init__(self, block_stream=None):
+        io.BytesIO.__init__(self)
+        if block_stream is not None:
+            if not isinstance(block_stream, io.IOBase):
+                raise TypeError('Stream does not have the buffer interface.')
+            self.read_block_stream(block_stream)
 
-    def seek(self, offset, whence=io.SEEK_SET):
+    def read_block_stream(self, block_stream):
         """
-        Change the stream position to the given byte offset.
-        
-        Only SEEK_SET or 0 is supported.
+        Read the whole block stream into the self-BytesIO.
         """
-        if whence == io.SEEK_SET:
-            self.offset = offset
-        if whence == io.SEEK_CUR:
-            pass
-        if whence == io.SEEK_END:
-            pass
-        return self.offset
-
-    def tell(self):
-        """Return the current stream position."""
-        return self.offset
-
-    def close(self):
-        """Flush and close the underlying I/O stream."""
-        self.stream.close()
-
-    @property
-    def closed(self):
-        """True if the underlying I/O stream is closed."""
-        return self.stream.closed
-
-    def readall(self):
-        """Read and return all the bytes from the stream until EOF."""
-        return self.read(-1)
-
-    def read(self, n=-1):
-        """read at the most n bytes from the hashed block stream"""
-        data = bytearray()
-        # always begin at start of input stream
-        self.stream.seek(0)
-
+        if not isinstance(block_stream, io.IOBase):
+            raise TypeError('Stream does not have the buffer interface.')
         while True:
-            tmp = self.read_block()
-            # end of stream
-            if tmp is None:
+            data = self._next_block(block_stream)
+            if not self.write(data):
                 break
-            data.extend(tmp)
-            # check if enough data read
-            if n > 0 and len(data) >= (self.offset+n):
-                break
+        self.seek(0)
 
-        # skip data before offset
-        data = data[self.offset:]
-
-        # limit to number of requested bytes
-        if n > 0:
-            data = data[:n]
+    def _next_block(self, block_stream):
+        """
+        Read the next block and verify the data.
+        Raises an IOError if the hash does not match.
+        """
+        index = read_int(block_stream, 4)
+        bhash = block_stream.read(32)
+        length = read_int(block_stream, 4)
         
-        # move offset
-        self.offset += len(data)
-        return bytes(data)
+        if length > 0:
+            data = block_stream.read(length)
+            if hashlib.sha256(data).digest() == bhash:
+                return data
+            else:
+                raise IOError('Block hash mismatch error.')
+        return bytes()
 
-    def read_block(self):
+    def write_block_stream(self, stream, block_length=BLOCK_LENGTH):
         """
-        read a single block, check the hash and return the data
-        returns none on error or when last block is reached
-        this moves the pointer in the input stream forward to the next block
+        Write all data in this buffer, starting at stream position 0, formatted
+        in hashed blocks to the given `stream`.
+        
+        For example, writing data from one file into another as hashed blocks::
+            
+            # create new hashed block io
+            hb = HashedBlockIO()
+            # read from a file into the hb
+            with open('sample.dat', 'rb') as infile:
+                hb.write(infile.read())
+                # write the data from sample.dat into a new file
+                with open('hb_sample.dat', 'w') as outfile:
+                    hb.write_block_stream(outfile)
         """
-        try:
-            block_index = struct.unpack('<I', self.stream.read(4))[0]
-            block_hash = self.stream.read(32)
-            block_length = struct.unpack('<I', self.stream.read(4))[0]
-        # catch end of input stream
-        except struct.error:
-            return None
-        except:
-            raise
-
-        # empty/last block reached, empty hash
-        if block_length == 0:
-            return None
-
-        # read and verify data in this block
-        data = self.stream.read(block_length)
-        if hashlib.sha256(data).digest() == block_hash:
-            return data
-        else:
-            raise IOError('Block hash error.')
+        if not isinstance(stream, io.IOBase):
+            raise TypeError('Stream does not have the buffer interface.')
+        index = 0
+        self.seek(0)
+        while True:
+            data = self.read(block_length)
+            if data:
+                stream.write(struct.pack('<I', index))
+                stream.write(hashlib.sha256(data).digest())
+                stream.write(struct.pack('<I', len(data)))
+                stream.write(data)
+                index += 1
+            else:
+                break
 
