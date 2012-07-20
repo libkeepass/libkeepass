@@ -23,5 +23,8 @@ pip-log.txt
 #Translations
 *.mo
 
+# tmp files
+*~
+
 #Mr Developer
 .mr.developer.cfg
