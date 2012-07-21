@@ -37,16 +37,13 @@ class KDBFile:
     def __init__(self, stream=None, **credentials):
         # list of hashed credentials (pre-transformation)
         self.keys = []
+        self.add_credentials(**credentials)
+        
         # the decrypted/decompressed stream reader
         self.reader = None
         # position into the _buffer where the encrypted data stream begins
         self.header_length = None
-
-        if credentials.has_key('password'):
-            self.add_key(sha256(credentials['password']))
-        if credentials.has_key('keyfile'):
-            self.add_key(load_keyfile(credentials['keyfile']))
-
+        
         # the raw/basic file handle, expect it to be closed after __init__!
         if stream is not None:
             if not isinstance(stream, io.IOBase):
@@ -60,13 +57,20 @@ class KDBFile:
     def write_to(self, stream):
         pass
 
-    def add_key(self, key):
+    def add_credentials(self, **credentials):
+        if credentials.has_key('password'):
+            self.add_key_hash(sha256(credentials['password']))
+        if credentials.has_key('keyfile'):
+            self.add_key_hash(load_keyfile(credentials['keyfile']))
+
+    def add_key_hash(self, key_hash):
         """
-        Add an encryption key. eg. a hashed password or key file hash.
-        Sequence is significant: first password, second key file if any.
+        Add an encryption key hash, can be a hashed password or a hashed
+        keyfile. Two things are important: must be SHA256 hashes and sequence is
+        important: first password if any, second key file if any.
         """
-        if key is not None:
-            self.keys.append(key)
+        if key_hash is not None:
+            self.keys.append(key_hash)
 
     def close(self):
         if self.reader:
