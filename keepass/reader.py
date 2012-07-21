@@ -33,7 +33,7 @@ class HashedBlockIO(io.BytesIO):
     def __init__(self, block_stream=None, bytes=None):
         io.BytesIO.__init__(self)
         if block_stream is not None:
-            if not isinstance(block_stream, io.IOBase):
+            if not (isinstance(block_stream, io.IOBase) or isinstance(block_stream, file)):
                 raise TypeError('Stream does not have the buffer interface.')
             input_stream = block_stream
         elif bytes is not None:
@@ -45,7 +45,7 @@ class HashedBlockIO(io.BytesIO):
         """
         Read the whole block stream into the self-BytesIO.
         """
-        if not isinstance(block_stream, io.IOBase):
+        if not (isinstance(block_stream, io.IOBase) or isinstance(block_stream, file)):
             raise TypeError('Stream does not have the buffer interface.')
         while True:
             data = self._next_block(block_stream)
@@ -86,7 +86,7 @@ class HashedBlockIO(io.BytesIO):
                 with open('hb_sample.dat', 'w') as outfile:
                     hb.write_block_stream(outfile)
         """
-        if not isinstance(stream, io.IOBase):
+        if not (isinstance(stream, io.IOBase) or isinstance(stream, file)):
             raise TypeError('Stream does not have the buffer interface.')
         index = 0
         self.seek(0)
