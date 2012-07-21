@@ -21,19 +21,25 @@ class HashedBlockIO(io.BytesIO):
     block hash is a SHA-256 hash of the block data. A block has a maximum
     length of BLOCK_LENGTH, but can be shorter.
     
-    Provide a I/O stream containing the hashed block data as the `stream` when 
-    creating a HashedBlockReader. The data is verified upon initialization
-    and an IOError is raised when a hash does not match.
+    Provide a I/O stream containing the hashed block data as the `block_stream`
+    argument when creating a HashedBlockReader. Alternatively the `bytes`
+    argument can be used to hand over data as a string/bytearray/etc. The data
+    is verified upon initialization and an IOError is raised when a hash does
+    not match.
     
     HashedBlockReader is a subclass of io.BytesIO. The inherited read, seek, ...
     functions shall be used to access the verified data.
     """
-    def __init__(self, block_stream=None):
+    def __init__(self, block_stream=None, bytes=None):
         io.BytesIO.__init__(self)
         if block_stream is not None:
             if not isinstance(block_stream, io.IOBase):
                 raise TypeError('Stream does not have the buffer interface.')
-            self.read_block_stream(block_stream)
+            input_stream = block_stream
+        elif bytes is not None:
+            input_stream = io.BytesIO(bytes)
+        if input_stream is not None:
+            self.read_block_stream(input_stream)
 
     def read_block_stream(self, block_stream):
         """
@@ -71,12 +77,12 @@ class HashedBlockIO(io.BytesIO):
         
         For example, writing data from one file into another as hashed blocks::
             
-            # create new hashed block io
+            # create new hashed block io without input stream or data
             hb = HashedBlockIO()
-            # read from a file into the hb
+            # read from a file, write into the empty hb
             with open('sample.dat', 'rb') as infile:
                 hb.write(infile.read())
-                # write the data from sample.dat into a new file
+                # write from the hb into a new file
                 with open('hb_sample.dat', 'w') as outfile:
                     hb.write_block_stream(outfile)
         """
