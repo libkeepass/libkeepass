@@ -58,17 +58,21 @@ class KDB4Header(HeaderDict):
         }
 
 class KDB4File(KDBFile):
-    def __init__(self, stream, **credentials):
+    def __init__(self, stream=None, **credentials):
         self.header = KDB4Header()
         KDBFile.__init__(self, stream, **credentials)
 
     def read_from(self, stream):
+        if not (isinstance(stream, io.IOBase) or isinstance(stream, file)):
+            raise TypeError('Stream does not have the buffer interface.')
         self._read_header(stream)
         self._decrypt(stream)
         if self.header['CompressionFlags'].val == 1:
             self._unzip()
 
     def write_to(self, stream):
+        if not (isinstance(stream, io.IOBase) or isinstance(stream, file)):
+            raise TypeError('Stream does not have the buffer interface.')
         pass
         # read xml from element tree (make sure it is protected)
         # zip or not according to header setting
@@ -248,7 +252,29 @@ class KDBXmlExtension:
         return base64.b64encode(tmp)
 
 class KDB4Reader(KDB4File, KDBXmlExtension):
-    def __init__(self, stream, **credentials):
+    """
+    Usually you would want to use the `keepass.open` context manager to open a
+    file. It checks the file signature and creates a suitable reader-instance.
+    
+    doing it by hand is also possible::
+    
+        kdb = keepass.KDB4Reader()
+        kdb.add_credentials(password='secret')
+        with open('passwords.kdb', 'rb') as fh:
+            kdb.read_from(fh)
+    
+    or...::
+    
+        with open('passwords.kdb', 'rb') as fh:
+            kdb = keepass.KDB4Reader(fh, password='secret')
+    
+    """
+    def __init__(self, stream=None, **credentials):
         KDB4File.__init__(self, stream, **credentials)
-        KDBXmlExtension.__init__(self)
+
+    def read_from(self, stream, unprotect=True):
+        KDB4File.read_from(self, stream)
+        # the extension requires parsed header and decrypted reader, so
+        # initialize only here
+        KDBXmlExtension.__init__(self, unprotect)
 

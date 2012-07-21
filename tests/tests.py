@@ -80,20 +80,34 @@ class TestCommon(unittest.TestCase):
         self.assertRaises(KeyError, h['third'])
         #self.assertRaises(KeyError, h[3])
 
+# created with KeePassX 0.4.3
+absfile2 = os.path.abspath('tests/sample7_kpx.kdb')
+# created with KeePass 2.19 on linux
+filename1 = 'sample1.kdbx'
+absfile1 = os.path.abspath('tests/'+filename1)
+absfile3 = os.path.abspath('tests/sample2.kdbx')
+keyfile3 = os.path.abspath('tests/sample2_keyfile.key')
+absfile4 = os.path.abspath('tests/sample3.kdbx')
+keyfile4 = os.path.abspath('tests/sample3_keyfile.exe')
+absfile5 = os.path.abspath('tests/sample4.kdbx')
+keyfile5 = os.path.abspath('tests/sample3_keyfile.exe')
+
 class TestKDB4(unittest.TestCase):
 
+    def test_class(self):
+        """Test direct KDB4Reader class usage"""
+        kdb = keepass.KDB4Reader()
+        with self.assertRaisesRegexp(TypeError, "Stream does not have the buffer interface."):
+            kdb.read_from(absfile1)
+        with self.assertRaisesRegexp(IOError, "No credentials found."):
+            with open(absfile1, 'rb') as fh:
+                kdb.read_from(fh)
+        kdb.add_credentials(password='asdf')
+        with open(absfile1, 'rb') as fh:
+            kdb.read_from(fh)
+        self.assertEquals(kdb.read(32), '<?xml version="1.0" encoding="ut')
+
     def test_open_file(self):
-        # created with KeePassX 0.4.3
-        absfile2 = os.path.abspath('tests/sample7_kpx.kdb')
-        # created with KeePass 2.19 on linux
-        filename1 = 'sample1.kdbx'
-        absfile1 = os.path.abspath('tests/'+filename1)
-        absfile3 = os.path.abspath('tests/sample2.kdbx')
-        keyfile3 = os.path.abspath('tests/sample2_keyfile.key')
-        absfile4 = os.path.abspath('tests/sample3.kdbx')
-        keyfile4 = os.path.abspath('tests/sample3_keyfile.exe')
-        absfile5 = os.path.abspath('tests/sample4.kdbx')
-        keyfile5 = os.path.abspath('tests/sample3_keyfile.exe')
 
         # file not found, proper exception gets re-raised
         with self.assertRaisesRegexp(IOError, "No such file or directory"):
@@ -120,6 +134,7 @@ class TestKDB4(unittest.TestCase):
         with keepass.open(absfile1, password="asdf") as kdb:
             self.assertIsNotNone(kdb)
             self.assertIsInstance(kdb, keepass.kdb4.KDB4Reader)
+
 
         # valid password and xml keyfile
         with keepass.open(absfile3, password="asdf", keyfile=keyfile3) as kdb:

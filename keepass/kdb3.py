@@ -56,11 +56,13 @@ class KDB3Header(HeaderDict):
         }
 
 class KDB3File(KDBFile):
-    def __init__(self, stream, **credentials):
+    def __init__(self, stream=None, **credentials):
         self.header = KDB3Header()
         KDBFile.__init__(self, stream, **credentials)
 
     def read_from(self, stream):
+        if not isinstance(stream, io.IOBase):
+            raise TypeError('Stream does not have the buffer interface.')
         self._read_header(stream)
         self._decrypt(stream)
 
@@ -135,7 +137,7 @@ class KDBExtension:
         pass
 
 class KDB3Reader(KDB3File, KDBExtension):
-    def __init__(self, stream, **credentials):
+    def __init__(self, stream=None, **credentials):
         KDB3File.__init__(self, stream, **credentials)
         KDBExtension.__init__(self)
 
