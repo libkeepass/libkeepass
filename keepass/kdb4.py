@@ -59,14 +59,25 @@ class KDB4Header(HeaderDict):
 
 class KDB4File(KDBFile):
     def __init__(self, stream, **credentials):
-        KDBFile.__init__(self, stream, **credentials)
-        
         self.header = KDB4Header()
-        
-        self._read_header()
-        self._decrypt()
+        KDBFile.__init__(self, stream, **credentials)
 
-    def _read_header(self):
+    def read_from(self, stream):
+        self._read_header(stream)
+        self._decrypt(stream)
+        if self.header['CompressionFlags'].val == 1:
+            self._unzip()
+
+    def write_to(self, stream):
+        pass
+        # read xml from element tree (make sure it is protected)
+        # zip or not according to header setting
+        # prefix data with stream start bytes (generate new ones?)
+        # encrypt the whole thing with header settings and master key
+        # serialize header to stream
+        # write encrypted block to stream
+
+    def _read_header(self, stream):
         """
         Parses the header and write the values into self.header. Also sets
         self.header_length.
@@ -80,51 +91,48 @@ class KDB4File(KDBFile):
         #TODO implement version check
         
         # the first header field starts at byte 12 after the signature
-        self._buffer.seek(12)
+        stream.seek(12)
         
         while True:
             # field_id is a single byte
-            field_id = self._read_buffer(None, 1, 'b')
+            field_id = stream_unpack(stream, None, 1, 'b')
             
             # field_id >10 is undefined
             if not field_id in self.header.fields.values():
                 raise IOError('Unknown header field found.')
             
             # two byte (short) length of field data
-            length = self._read_buffer(None, 2, 'h')
+            length = stream_unpack(stream, None, 2, 'h')
             if length > 0:
-                data = self._read_buffer(None, length, '{}s'.format(length))
+                data = stream_unpack(stream, None, length, '{}s'.format(length))
                 self.header[field_id] = data
             
             # set position in data stream of end of header
             if field_id == 0:
-                self.header_length = self._buffer.tell()
+                self.header_length = stream.tell()
                 break
 
-    def _decrypt(self):
-        if len(self.keys) == 0:
-            raise IOError('No credentials found.')
-        
+    def _decrypt(self, stream):
         self._make_master_key()
         
         # move read pointer beyond the file header
         if self.header_length is None:
             raise IOError('Header length unknown. Parse the header first!')
-        self._buffer.seek(self.header_length)
+        stream.seek(self.header_length)
         
-        data = aes_cbc_decrypt(self._buffer.read(), self.master_key, 
+        data = aes_cbc_decrypt(stream.read(), self.master_key, 
             self.header['EncryptionIV'].raw)
         
         length = len(self.header['StreamStartBytes'].raw)
         if self.header['StreamStartBytes'].raw == data[:length]:
             # skip startbytes and wrap data in a I/O stream inside a block reader
-            self.reader = HashedBlockIO(io.BytesIO(data[length:]))
+            self.reader = HashedBlockIO(bytes=data[length:])
         else:
             raise IOError('Master key invalid.')
-        
-        if self.header['CompressionFlags'].val == 1:
-            d = zlib.decompressobj(16+zlib.MAX_WBITS)
-            self.reader = io.BytesIO(d.decompress(self.reader.read()))
+
+    def _unzip(self):
+        d = zlib.decompressobj(16+zlib.MAX_WBITS)
+        self.reader = io.BytesIO(d.decompress(self.reader.read()))
 
     def _make_master_key(self):
         """
@@ -133,6 +141,8 @@ class KDB4File(KDBFile):
         for a specific number of rounds and (3) finally hashing the result in 
         combination with the master seed.
         """
+        if len(self.keys) == 0:
+            raise IOError('No credentials found.')
         composite = sha256(''.join(self.keys))
         tkey = transform_key(composite, 
             self.header['TransformSeed'].raw, 
@@ -155,11 +165,13 @@ class KDBXmlExtension:
     """
     def __init__(self, unprotect=True):
         self._salsa_buffer = bytearray()
+        self.salsa = Salsa20(
+            sha256(self.header['ProtectedStreamKey'].raw), 
+            KDB4_SALSA20_IV)
+        
         self.reader.seek(0)
         self.obj_root = objectify.parse(self.reader).getroot()
-        # create salsa20 instance with hashed key and fixed iv
-        self.salsa = Salsa20(sha256(self.header['ProtectedStreamKey'].raw), 
-            KDB4_SALSA20_IV)
+        
         if unprotect:
             self.unprotect()
 

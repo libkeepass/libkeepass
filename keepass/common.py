@@ -34,20 +34,31 @@ import io
 from crypto import sha256
 
 class KDBFile:
-    def __init__(self, stream, **credentials):
+    def __init__(self, stream=None, **credentials):
         # list of hashed credentials (pre-transformation)
         self.keys = []
-        # the raw/basic file handle, expect it to be closed after __init__!
-        self._buffer = stream
         # the decrypted/decompressed stream reader
         self.reader = None
         # position into the _buffer where the encrypted data stream begins
         self.header_length = None
-        
+
         if credentials.has_key('password'):
             self.add_key(sha256(credentials['password']))
         if credentials.has_key('keyfile'):
             self.add_key(load_keyfile(credentials['keyfile']))
+
+        # the raw/basic file handle, expect it to be closed after __init__!
+        if stream is not None:
+            if not isinstance(stream, io.IOBase):
+                raise TypeError('Stream does not have the buffer interface.')
+            self.read_from(stream)
+
+    def read_from(self, stream):
+        # implement parsing/decrypting/etc and finally set self.reader
+        pass
+
+    def write_to(self, stream):
+        pass
 
     def add_key(self, key):
         """
@@ -81,8 +92,6 @@ class KDBFile:
         if self.reader:
             return self.reader.tell()
 
-    def _read_buffer(self, offset, length, typecode='I'):
-        return stream_unpack(self._buffer, offset, length, typecode)
 
 # loading keyfiles
 

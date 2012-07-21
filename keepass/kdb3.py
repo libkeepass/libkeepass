@@ -57,14 +57,14 @@ class KDB3Header(HeaderDict):
 
 class KDB3File(KDBFile):
     def __init__(self, stream, **credentials):
-        KDBFile.__init__(self, stream, **credentials)
-        
         self.header = KDB3Header()
-        
-        self._read_header()
-        self._decrypt()
+        KDBFile.__init__(self, stream, **credentials)
 
-    def _read_header(self):
+    def read_from(self, stream):
+        self._read_header(stream)
+        self._decrypt(stream)
+
+    def _read_header(self, stream):
         """
         Parses the header and write the values into self.header. Also sets
         self.header_length.
@@ -72,12 +72,12 @@ class KDB3File(KDBFile):
         # kdb3 has a fixed header length
         self.header_length = 124
         # skip file signature
-        self._buffer.seek(8)
+        stream.seek(8)
         
         field_id = 0
         while True:
             length = self.header.lengths[field_id]
-            data = self._read_buffer(None, length, '{}s'.format(length))
+            data = stream_unpack(stream, None, length, '{}s'.format(length))
             self.header[field_id] = data
             
             field_id += 1
@@ -85,10 +85,10 @@ class KDB3File(KDBFile):
                 break
         
         # this is impossible, as long as noone messes with self.header.lengths
-        if self.header_length != self._buffer.tell():
+        if self.header_length != stream.tell():
             raise IOError('Unexpected header length! What did you do!?')
 
-    def _decrypt(self):
+    def _decrypt(self, stream):
         if len(self.keys) == 0:
             raise IOError('No credentials found.')
         
@@ -97,9 +97,9 @@ class KDB3File(KDBFile):
         # move read pointer beyond the file header
         if self.header_length is None:
             raise IOError('Header length unknown. Parse the header first!')
-        self._buffer.seek(self.header_length)
+        stream.seek(self.header_length)
         
-        data = aes_cbc_decrypt(self._buffer.read(), self.master_key, 
+        data = aes_cbc_decrypt(stream.read(), self.master_key, 
             self.header['EncryptionIV'].raw)
         data = unpad(data)
         
