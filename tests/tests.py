@@ -92,6 +92,10 @@ keyfile4 = os.path.abspath('tests/sample3_keyfile.exe')
 absfile5 = os.path.abspath('tests/sample4.kdbx')
 keyfile5 = os.path.abspath('tests/sample3_keyfile.exe')
 
+output1 = os.path.abspath('tests/output1.kdbx')
+output4 = os.path.abspath('tests/output4.kdbx')
+
+
 class TestKDB4(unittest.TestCase):
 
     def test_class_interface(self):
@@ -110,9 +114,15 @@ class TestKDB4(unittest.TestCase):
     def test_write_file(self):
         # valid password and plain keyfile, compressed kdb
         with keepass.open(absfile1, password="asdf") as kdb:
-            with open('output.kdbx', 'w') as outfile:
+            with open(output1, 'w') as outfile:
                 kdb.write_to(outfile)
-        with keepass.open('output.kdbx', password="asdf") as kdb:
+        with keepass.open(output1, password="asdf") as kdb:
+            self.assertEquals(kdb.read(32), '<?xml version="1.0" encoding="ut')
+
+        with keepass.open(absfile4, password="qwer", keyfile=keyfile4) as kdb:
+            with open(output4, 'w') as outfile:
+                kdb.write_to(outfile)
+        with keepass.open(output4, password="qwer", keyfile=keyfile4) as kdb:
             self.assertEquals(kdb.read(32), '<?xml version="1.0" encoding="ut')
 
     def test_open_file(self):
