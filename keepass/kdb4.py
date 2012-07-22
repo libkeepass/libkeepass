@@ -89,7 +89,7 @@ class KDB4File(KDBFile):
 
     def _read_header(self, stream):
         """
-        Parses the header and write the values into self.header. Also sets
+        Parse the header and write the values into self.header. Also sets
         self.header_length.
         """
         # KeePass 2.07 has version 1.01,
@@ -122,15 +122,20 @@ class KDB4File(KDBFile):
                 self.header_length = stream.tell()
                 break
 
-        stream.seek(0)
-        self.original_header = stream.read(self.header_length)
-
     def _write_header(self, stream):
+        """
+        Serialize the header fields from self.header into a byte stream, prefix
+        with file signature and version before writing header and out-buffer
+        to `stream`.
+        
+        Note, that `stream` is flushed, but not closed!
+        """
         # serialize header to stream
         header = bytearray()
-        # wite file signature and version
+        # write file signature
         header.extend(struct.pack('<I', KDB4_SIGNATURE[0]))
         header.extend(struct.pack('<I', KDB4_SIGNATURE[1]))
+        # and version
         header.extend(struct.pack('<h', 0))
         header.extend(struct.pack('<h', 3))
         
@@ -144,6 +149,7 @@ class KDB4File(KDBFile):
             header.extend(struct.pack('<h', length))
             header.extend(struct.pack('{}s'.format(length), value))
         
+        # write header to stream
         stream.write(header)
         
         # write encrypted block to stream
@@ -151,6 +157,13 @@ class KDB4File(KDBFile):
         stream.flush()
 
     def _decrypt(self, stream):
+        """
+        Build the master key from header settings and key-hash list.
+        
+        Start reading from `stream` after the header and decrypt all the data.
+        Remove padding as needed and feed into hashed block reader, set as
+        in-buffer.
+        """
         self._make_master_key()
         
         # move read pointer beyond the file header
@@ -170,6 +183,14 @@ class KDB4File(KDBFile):
             raise IOError('Master key invalid.')
 
     def _encrypt(self):
+        """
+        Rebuild the master key from header settings and key-hash list. Encrypt
+        the stream start bytes and the out-buffer formatted as hashed block
+        stream with padding added as needed.
+        """
+        # rebuild master key from (possibly) updated header
+        self._make_master_key()
+        
         # make hashed block stream
         block_buffer = HashedBlockIO()
         block_buffer.write(self.out_buffer.read())
@@ -188,13 +209,18 @@ class KDB4File(KDBFile):
             self.header['EncryptionIV'].raw)
 
     def _unzip(self):
-        self.original_zipped = self.in_buffer.read()
+        """
+        Inplace decompress in-buffer. Read/write position is moved to 0.
+        """
         self.in_buffer.seek(0)
         d = zlib.decompressobj(16+zlib.MAX_WBITS)
         self.in_buffer = io.BytesIO(d.decompress(self.in_buffer.read()))
         self.in_buffer.seek(0)
 
     def _zip(self):
+        """
+        Inplace compress out-buffer. Read/write position is moved to 0.
+        """
         data = self.out_buffer.read()
         self.out_buffer = io.BytesIO()
         # note: compresslevel=6 seems to be important!
