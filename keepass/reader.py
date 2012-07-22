@@ -32,6 +32,7 @@ class HashedBlockIO(io.BytesIO):
     """
     def __init__(self, block_stream=None, bytes=None):
         io.BytesIO.__init__(self)
+        input_stream = None
         if block_stream is not None:
             if not (isinstance(block_stream, io.IOBase) or isinstance(block_stream, file)):
                 raise TypeError('Stream does not have the buffer interface.')
@@ -99,5 +100,8 @@ class HashedBlockIO(io.BytesIO):
                 stream.write(data)
                 index += 1
             else:
+                stream.write(struct.pack('<I', index))
+                stream.write('\x00'*32)
+                stream.write(struct.pack('<I', 0))
                 break
 
