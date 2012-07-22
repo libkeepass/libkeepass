@@ -8,7 +8,7 @@ import base64
 
 
 from crypto import xor, sha256, aes_cbc_decrypt
-from crypto import transform_key
+from crypto import transform_key, unpad
 
 from common import load_keyfile, stream_unpack
 
@@ -126,6 +126,7 @@ class KDB4File(KDBFile):
         
         data = aes_cbc_decrypt(stream.read(), self.master_key, 
             self.header['EncryptionIV'].raw)
+        data = unpad(data)
         
         length = len(self.header['StreamStartBytes'].raw)
         if self.header['StreamStartBytes'].raw == data[:length]:
