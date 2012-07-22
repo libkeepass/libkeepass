@@ -2,7 +2,8 @@
 import os, sys
 import unittest
 
-from keepass.crypto import sha256, transform_key, aes_cbc_decrypt, xor
+from keepass.crypto import sha256, transform_key, aes_cbc_decrypt, xor, pad
+from keepass.crypto import AES_BLOCK_SIZE
 
 class TextCrypto(unittest.TestCase):
     def test_sha256(self):
@@ -34,6 +35,27 @@ class TextCrypto(unittest.TestCase):
         self.assertEquals(xor('\x01', '\x00'), '\x01')
         self.assertEquals(xor('\x01\x01', '\x00\x01'), '\x01\x00')
         self.assertEquals(xor('banana', 'ananas'), '\x03\x0f\x0f\x0f\x0f\x12')
+
+    def test_pad(self):
+        self.assertEquals(pad(''), 
+            '\x10\x10\x10\x10\x10\x10\x10\x10\x10\x10\x10\x10\x10\x10\x10\x10')
+        self.assertEquals(pad('\xff'), 
+            '\xff\x0f\x0f\x0f\x0f\x0f\x0f\x0f\x0f\x0f\x0f\x0f\x0f\x0f\x0f\x0f')
+        self.assertEquals(pad('\xff\xff'), 
+            '\xff\xff\x0e\x0e\x0e\x0e\x0e\x0e\x0e\x0e\x0e\x0e\x0e\x0e\x0e\x0e')
+        self.assertEquals(pad('\xff\xff\xff'), 
+            '\xff\xff\xff\x0d\x0d\x0d\x0d\x0d\x0d\x0d\x0d\x0d\x0d\x0d\x0d\x0d')
+        self.assertEquals(pad('\xff\xff\xff\xff'), 
+            '\xff\xff\xff\xff\x0c\x0c\x0c\x0c\x0c\x0c\x0c\x0c\x0c\x0c\x0c\x0c')
+        self.assertEquals(pad('\xff\xff\xff\xff\xff'), 
+            '\xff\xff\xff\xff\xff\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b')
+        self.assertEquals(len(pad('\xff')), AES_BLOCK_SIZE)
+        self.assertEquals(len(pad('\xff'*0)), AES_BLOCK_SIZE)
+        self.assertEquals(len(pad('\xff'*1)), AES_BLOCK_SIZE)
+        self.assertEquals(len(pad('\xff'*2)), AES_BLOCK_SIZE)
+        self.assertEquals(len(pad('\xff'*15)), AES_BLOCK_SIZE)
+        self.assertEquals(len(pad('\xff'*16)), 2*AES_BLOCK_SIZE)
+        self.assertEquals(len(pad('\xff'*17)), 2*AES_BLOCK_SIZE)
 
 import keepass
 
