@@ -2,13 +2,14 @@
 import io
 import uuid
 import zlib
+import gzip
 import struct
 import hashlib
 import base64
 
 
-from crypto import xor, sha256, aes_cbc_decrypt
-from crypto import transform_key, unpad
+from crypto import xor, sha256, aes_cbc_decrypt, aes_cbc_encrypt
+from crypto import transform_key, pad, unpad
 
 from common import load_keyfile, stream_unpack
 
@@ -73,13 +74,40 @@ class KDB4File(KDBFile):
     def write_to(self, stream):
         if not (isinstance(stream, io.IOBase) or isinstance(stream, file)):
             raise TypeError('Stream does not have the buffer interface.')
-        pass
-        # read xml from element tree (make sure it is protected)
+        
+        # start an out-buffer and fill it with the current in-buffer
+        # (containing xml data)
+        if self.out_buffer is None:
+            self.in_buffer.seek(0)
+            self.out_buffer = io.BytesIO(self.in_buffer.read())
+        
         # zip or not according to header setting
-        # prefix data with stream start bytes (generate new ones?)
+        if self.header['CompressionFlags'].val == 1:
+            self._zip()
+        
+        # make hashed block stream
+        block_buffer = HashedBlockIO()
+        block_buffer.write(self.out_buffer.read())
+        # data is buffered in hashed block io, start a new one
+        self.out_buffer = io.BytesIO()
+        # write start bytes (for successful decrypt check)
+        self.out_buffer.write(self.header['StreamStartBytes'].raw)
+        # append blocked data to out-buffer
+        block_buffer.write_block_stream(self.out_buffer)
+        block_buffer.close()
+        self.out_buffer.seek(0)
+        
         # encrypt the whole thing with header settings and master key
+        data = pad(self.out_buffer.read())
+        data = aes_cbc_encrypt(data, self.master_key, 
+            self.header['EncryptionIV'].raw)
+        
         # serialize header to stream
+        #TODO implement header serialization
+        stream.write(self.original_header)
         # write encrypted block to stream
+        stream.write(data)
+        stream.flush()
 
     def _read_header(self, stream):
         """
@@ -116,6 +144,12 @@ class KDB4File(KDBFile):
                 self.header_length = stream.tell()
                 break
 
+        stream.seek(0)
+        self.original_header = stream.read(self.header_length)
+
+    def _write_header(self):
+        pass
+
     def _decrypt(self, stream):
         self._make_master_key()
         
@@ -130,14 +164,29 @@ class KDB4File(KDBFile):
         
         length = len(self.header['StreamStartBytes'].raw)
         if self.header['StreamStartBytes'].raw == data[:length]:
-            # skip startbytes and wrap data in a I/O stream inside a block reader
-            self.reader = HashedBlockIO(bytes=data[length:])
+            # skip startbytes and wrap data in a hashed block io
+            self.in_buffer = HashedBlockIO(bytes=data[length:])
         else:
             raise IOError('Master key invalid.')
 
+    def _encrypt(self):
+        pass
+
     def _unzip(self):
+        self.original_zipped = self.in_buffer.read()
+        self.in_buffer.seek(0)
         d = zlib.decompressobj(16+zlib.MAX_WBITS)
-        self.reader = io.BytesIO(d.decompress(self.reader.read()))
+        self.in_buffer = io.BytesIO(d.decompress(self.in_buffer.read()))
+        self.in_buffer.seek(0)
+
+    def _zip(self):
+        data = self.out_buffer.read()
+        self.out_buffer = io.BytesIO()
+        # note: compresslevel=6 seems to be important!
+        gz = gzip.GzipFile(fileobj=self.out_buffer, mode='wb', compresslevel=6)
+        gz.write(data)
+        gz.close()
+        self.out_buffer.seek(0)
 
     def _make_master_key(self):
         """
@@ -174,8 +223,8 @@ class KDBXmlExtension:
             sha256(self.header['ProtectedStreamKey'].raw), 
             KDB4_SALSA20_IV)
         
-        self.reader.seek(0)
-        self.obj_root = objectify.parse(self.reader).getroot()
+        self.in_buffer.seek(0)
+        self.obj_root = objectify.parse(self.in_buffer).getroot()
         
         if unprotect:
             self.unprotect()
@@ -217,7 +266,12 @@ class KDBXmlExtension:
 
     def pretty_print(self):
         """Return a serialization of the element tree."""
+        #TODO write xml header!
         return etree.tostring(self.obj_root, pretty_print=True)
+
+    def write_to(self, stream):
+        if self.out_buffer is None:
+            self.out_buffer = io.BytesIO(self.pretty_print())
 
     def _reset_salsa(self):
         """Clear the salsa buffer and reset algorithm counter to 0."""
@@ -275,7 +329,11 @@ class KDB4Reader(KDB4File, KDBXmlExtension):
 
     def read_from(self, stream, unprotect=True):
         KDB4File.read_from(self, stream)
-        # the extension requires parsed header and decrypted reader, so
+        # the extension requires parsed header and decrypted self.in_buffer, so
         # initialize only here
         KDBXmlExtension.__init__(self, unprotect)
+
+    def write_to(self, stream):
+        #KDBXmlExtension.write_to(self, stream)
+        KDB4File.write_to(self, stream)
 

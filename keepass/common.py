@@ -40,7 +40,8 @@ class KDBFile:
         self.add_credentials(**credentials)
         
         # the decrypted/decompressed stream reader
-        self.reader = None
+        self.in_buffer = None
+        self.out_buffer = None
         # position into the _buffer where the encrypted data stream begins
         self.header_length = None
         
@@ -51,7 +52,7 @@ class KDBFile:
             self.read_from(stream)
 
     def read_from(self, stream):
-        # implement parsing/decrypting/etc and finally set self.reader
+        # implement parsing/decrypting/etc and finally set self.in_buffer
         pass
 
     def write_to(self, stream):
@@ -73,8 +74,8 @@ class KDBFile:
             self.keys.append(key_hash)
 
     def close(self):
-        if self.reader:
-            self.reader.close()
+        if self.in_buffer:
+            self.in_buffer.close()
 
     def read(self, n=-1):
         """
@@ -85,16 +86,16 @@ class KDBFile:
         NOT be reflected in that data stream! Use `self.pretty_print` to get
         XML output from the element tree.
         """
-        if self.reader:
-            return self.reader.read(n)
+        if self.in_buffer:
+            return self.in_buffer.read(n)
 
     def seek(self, offset, whence=io.SEEK_SET):
-        if self.reader:
-            return self.reader.seek(offset, whence)
+        if self.in_buffer:
+            return self.in_buffer.seek(offset, whence)
 
     def tell(self):
-        if self.reader:
-            return self.reader.tell()
+        if self.in_buffer:
+            return self.in_buffer.tell()
 
 
 # loading keyfiles

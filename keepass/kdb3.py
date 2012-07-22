@@ -106,7 +106,7 @@ class KDB3File(KDBFile):
         data = unpad(data)
         
         if self.header['ContentHash'].raw == sha256(data):
-            self.reader = io.BytesIO(data)
+            self.in_buffer = io.BytesIO(data)
         else:
             raise IOError('Master key invalid.')
 
