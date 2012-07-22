@@ -85,29 +85,8 @@ class KDB4File(KDBFile):
         if self.header['CompressionFlags'].val == 1:
             self._zip()
         
-        # make hashed block stream
-        block_buffer = HashedBlockIO()
-        block_buffer.write(self.out_buffer.read())
-        # data is buffered in hashed block io, start a new one
-        self.out_buffer = io.BytesIO()
-        # write start bytes (for successful decrypt check)
-        self.out_buffer.write(self.header['StreamStartBytes'].raw)
-        # append blocked data to out-buffer
-        block_buffer.write_block_stream(self.out_buffer)
-        block_buffer.close()
-        self.out_buffer.seek(0)
-        
-        # encrypt the whole thing with header settings and master key
-        data = pad(self.out_buffer.read())
-        data = aes_cbc_encrypt(data, self.master_key, 
-            self.header['EncryptionIV'].raw)
-        
-        # serialize header to stream
-        #TODO implement header serialization
-        stream.write(self.original_header)
-        # write encrypted block to stream
-        stream.write(data)
-        stream.flush()
+        self._encrypt()
+        self._write_header(stream)
 
     def _read_header(self, stream):
         """
@@ -147,8 +126,13 @@ class KDB4File(KDBFile):
         stream.seek(0)
         self.original_header = stream.read(self.header_length)
 
-    def _write_header(self):
-        pass
+    def _write_header(self, stream):
+        # serialize header to stream
+        #TODO implement header serialization
+        stream.write(self.original_header)
+        # write encrypted block to stream
+        stream.write(self.out_buffer)
+        stream.flush()
 
     def _decrypt(self, stream):
         self._make_master_key()
@@ -170,7 +154,22 @@ class KDB4File(KDBFile):
             raise IOError('Master key invalid.')
 
     def _encrypt(self):
-        pass
+        # make hashed block stream
+        block_buffer = HashedBlockIO()
+        block_buffer.write(self.out_buffer.read())
+        # data is buffered in hashed block io, start a new one
+        self.out_buffer = io.BytesIO()
+        # write start bytes (for successful decrypt check)
+        self.out_buffer.write(self.header['StreamStartBytes'].raw)
+        # append blocked data to out-buffer
+        block_buffer.write_block_stream(self.out_buffer)
+        block_buffer.close()
+        self.out_buffer.seek(0)
+        
+        # encrypt the whole thing with header settings and master key
+        data = pad(self.out_buffer.read())
+        self.out_buffer = aes_cbc_encrypt(data, self.master_key, 
+            self.header['EncryptionIV'].raw)
 
     def _unzip(self):
         self.original_zipped = self.in_buffer.read()
