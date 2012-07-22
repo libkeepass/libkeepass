@@ -94,7 +94,7 @@ keyfile5 = os.path.abspath('tests/sample3_keyfile.exe')
 
 class TestKDB4(unittest.TestCase):
 
-    def test_class(self):
+    def test_class_interface(self):
         """Test direct KDB4Reader class usage"""
         kdb = keepass.KDB4Reader()
         with self.assertRaisesRegexp(TypeError, "Stream does not have the buffer interface."):
@@ -107,8 +107,15 @@ class TestKDB4(unittest.TestCase):
             kdb.read_from(fh)
         self.assertEquals(kdb.read(32), '<?xml version="1.0" encoding="ut')
 
-    def test_open_file(self):
+    def test_write_file(self):
+        # valid password and plain keyfile, compressed kdb
+        with keepass.open(absfile1, password="asdf") as kdb:
+            with open('output.kdbx', 'w') as outfile:
+                kdb.write_to(outfile)
+        with keepass.open('output.kdbx', password="asdf") as kdb:
+            self.assertEquals(kdb.read(32), '<?xml version="1.0" encoding="ut')
 
+    def test_open_file(self):
         # file not found, proper exception gets re-raised
         with self.assertRaisesRegexp(IOError, "No such file or directory"):
             with keepass.open(filename1, password="asdf"):
