@@ -13,6 +13,9 @@ from common import load_keyfile, stream_unpack
 from common import KDBFile, HeaderDict
 
 
+KDB3_SIGNATURE = (0x9AA2D903, 0xB54BFB65)
+
+
 class KDB3Header(HeaderDict):
     fields = {
         # encryption type/flag

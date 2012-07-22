@@ -18,6 +18,7 @@ from reader import HashedBlockIO
 
 
 KDB4_SALSA20_IV = bytes('e830094b97205d2a'.decode('hex'))
+KDB4_SIGNATURE = (0x9AA2D903, 0xB54BFB67)
 
 
 class KDB4Header(HeaderDict):
@@ -45,8 +46,6 @@ class KDB4Header(HeaderDict):
         }
 
     transform = {
-        #0: lambda x: x,
-        #1: lambda x: x,
         2: lambda x: uuid.UUID(bytes=x),
         3: lambda x: struct.unpack('<I', x)[0],
         4: lambda x: x.encode('hex'),
@@ -128,8 +127,25 @@ class KDB4File(KDBFile):
 
     def _write_header(self, stream):
         # serialize header to stream
-        #TODO implement header serialization
-        stream.write(self.original_header)
+        header = bytearray()
+        # wite file signature and version
+        header.extend(struct.pack('<I', KDB4_SIGNATURE[0]))
+        header.extend(struct.pack('<I', KDB4_SIGNATURE[1]))
+        header.extend(struct.pack('<h', 0))
+        header.extend(struct.pack('<h', 3))
+        
+        field_ids = self.header.keys()
+        field_ids.sort()
+        field_ids.reverse() # field_id 0 must be last
+        for field_id in field_ids:
+            value = self.header[field_id].raw
+            length = len(value)
+            header.extend(struct.pack('<b', field_id))
+            header.extend(struct.pack('<h', length))
+            header.extend(struct.pack('{}s'.format(length), value))
+        
+        stream.write(header)
+        
         # write encrypted block to stream
         stream.write(self.out_buffer)
         stream.flush()

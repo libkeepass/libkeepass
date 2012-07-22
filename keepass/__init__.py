@@ -3,15 +3,15 @@ import io
 from contextlib import contextmanager
 
 from common import read_signature
-from kdb3 import KDB3Reader
-from kdb4 import KDB4Reader
+from kdb3 import KDB3Reader, KDB3_SIGNATURE
+from kdb4 import KDB4Reader, KDB4_SIGNATURE
 
 BASE_SIGNATURE = 0x9AA2D903
 
 _kdb_readers = {
-    0xB54BFB65: KDB3Reader,
+    KDB3_SIGNATURE[1]: KDB3Reader,
     #0xB54BFB66: KDB4Reader, # pre2.x may work, untested
-    0xB54BFB67: KDB4Reader,
+    KDB4_SIGNATURE[1]: KDB4Reader,
     }
 
 @contextmanager
