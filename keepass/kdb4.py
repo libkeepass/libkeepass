@@ -63,6 +63,12 @@ class KDB4File(KDBFile):
         KDBFile.__init__(self, stream, **credentials)
 
     def read_from(self, stream):
+        """
+        Read, parse, decrypt, decompress a KeePass file from a stream.
+        
+        :arg stream: A file-like object (opened in 'rb' mode) or IO buffer
+            containing a KeePass file.
+        """
         if not (isinstance(stream, io.IOBase) or isinstance(stream, file)):
             raise TypeError('Stream does not have the buffer interface.')
         self._read_header(stream)
@@ -71,6 +77,11 @@ class KDB4File(KDBFile):
             self._unzip()
 
     def write_to(self, stream):
+        """
+        Write the KeePass database back to a KeePass2 compatible file.
+        
+        :arg stream: A writeable file-like object or IO buffer.
+        """
         if not (isinstance(stream, io.IOBase) or isinstance(stream, file)):
             raise TypeError('Stream does not have the buffer interface.')
         
@@ -310,6 +321,7 @@ class KDBXmlExtension:
             encoding='utf-8', standalone=True)
 
     def write_to(self, stream):
+        """Serialize the element tree to the out-buffer."""
         if self.out_buffer is None:
             self.out_buffer = io.BytesIO(self.pretty_print())
 
@@ -373,7 +385,16 @@ class KDB4Reader(KDB4File, KDBXmlExtension):
         # initialize only here
         KDBXmlExtension.__init__(self, unprotect)
 
-    def write_to(self, stream):
-        KDBXmlExtension.write_to(self, stream)
+    def write_to(self, stream, use_etree=True):
+        """
+        Write the KeePass database back to a KeePass2 compatible file.
+        
+        :arg stream: A file-like object or IO buffer.
+        :arg use_tree: Serialize the element tree to XML to save (default:
+            True), Set to False to write the data currently in the in-buffer
+            instead.
+        """
+        if use_etree:
+            KDBXmlExtension.write_to(self, stream)
         KDB4File.write_to(self, stream)
 
