@@ -58,6 +58,9 @@ class KDB4File(KDBFile):
             raise ValueError('Compression flag can be 0 or 1.')
         self.header.CompressionFlags = flag
 
+    #def set_comment(self, comment):
+    #    self.header.Comment = comment
+
     def read_from(self, stream):
         """
         Read, parse, decrypt, decompress a KeePass file from a stream.
@@ -319,6 +322,7 @@ class KDBXmlExtension:
     def write_to(self, stream):
         """Serialize the element tree to the out-buffer."""
         if self.out_buffer is None:
+            self.protect()
             self.out_buffer = io.BytesIO(self.pretty_print())
 
     def _reset_salsa(self):
