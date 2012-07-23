@@ -143,6 +143,10 @@ class KDBFile:
         if credentials.has_key('keyfile'):
             self.add_key_hash(load_keyfile(credentials['keyfile']))
 
+    def clear_credentials(self):
+        """Remove all previously set encryption key hashes."""
+        self.keys = []
+
     def add_key_hash(self, key_hash):
         """
         Add an encryption key hash, can be a hashed password or a hashed

@@ -53,6 +53,10 @@ Examples
         # or use kdb.obj_root to access the element tree
         kdb.obj_root.findall('.//Entry')
         
+        # change the master password before writing
+        kdb.clear_credentials()
+        kdb.add_credentials(password="m04r_s3cr37")
+        
         # write to a new file
         with open('output', 'wb') as output:
             kdb.write_to(output)

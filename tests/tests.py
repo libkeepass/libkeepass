@@ -210,9 +210,12 @@ class TestKDB4(unittest.TestCase):
         with keepass.open(absfile1, password="asdf") as kdb:
             self.assertEquals(kdb.read(32), '<?xml version="1.0" encoding="ut')
             kdb.set_compression(0)
+            #kdb.set_comment("this is pretty cool!")
+            kdb.clear_credentials()
+            kdb.add_credentials(password="yxcv")
             with open(output1, 'w') as outfile:
                 kdb.write_to(outfile)
-        with keepass.open(output1, password="asdf") as kdb:
+        with keepass.open(output1, password="yxcv") as kdb:
             self.assertEquals(kdb.read(32), "<?xml version='1.0' encoding='ut")
 
         with keepass.open(absfile4, password="qwer", keyfile=keyfile4) as kdb:
