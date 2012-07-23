@@ -16,25 +16,31 @@ Requirements
 KeePass 1.x support
 -------------------
 
-Currently the reader only goes so far, as outputting the raw decrypted data.
-Parsing into groups and entries is missing and probably just needs to be 
+Currently the v3 reader only goes so far, as outputting the raw decrypted data.
+Parsing into groups and entries is missing, but probably just needs to be 
 integrated from Brett Viren's work.
+
+Only passwords are supported.
+
+No write support.
 
 KeePass 2.x support
 -------------------
 
-The v4 reader can output the decrypted XML document that format is based on.
-It is also available as parsed objectified element tree.
+The v4 reader can output the decrypted XML document that file format is based
+on. It is also available as parsed objectified element tree.
 
-The v4 reader supports passwords and key-file protection.
+The password elements in the XML document are protected in addition to the AES
+encryption of the whole database. Switching between clear text and protected is
+possible.
 
-In v4 the password elements are protected in addition to the AES encryption of
-the whole database.
+Passwords and key-file protection is supported.
 
-There is basic "save as" write support. The opened decrypted database is held in
-the in-buffer and parsed into an element tree, which can be modified. When
-writing the KeePass file, the element tree is serialized, compressed and
-encrypted according to the settings in the file header and written to a stream.
+Compressed and uncompressed files are supported.
+
+There is basic "save as" write support. When writing the KeePass2 file, the
+element tree is protected, serialized, compressed and encrypted according to the
+settings in the file header and written to a stream.
 
 Examples
 --------
