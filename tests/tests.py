@@ -102,6 +102,93 @@ class TestCommon(unittest.TestCase):
         self.assertRaises(KeyError, h['third'])
         #self.assertRaises(KeyError, h[3])
 
+    def test_header_dict_new(self):
+        h = keepass.common.HeaderDict2()
+        # configure fields
+        h.fields = {'first': 1, 'second': 2}
+        
+        # set and get via int or name
+        h[1] = '1_eins'
+        self.assertEquals(h[1], '1_eins')
+        self.assertEquals(h['first'], '1_eins')
+        h['first'] = '2_eins'
+        self.assertEquals(h[1], '2_eins')
+        self.assertEquals(h['first'], '2_eins')
+        
+        # in fields, but not set
+        self.assertRaises(KeyError, lambda: h[2])
+        self.assertRaises(KeyError, lambda: h['second'])
+        
+        # not even in fields
+        self.assertRaises(KeyError, lambda: h[3])
+        self.assertRaises(KeyError, lambda: h['third'])
+        
+        # attribute access (reading)
+        self.assertEquals(h.first, '2_eins')
+        self.assertRaises(AttributeError, lambda: h.second)
+        self.assertRaises(AttributeError, lambda: h.third)
+        
+        # attribute writing
+        h.first = '3_eins'
+        self.assertEquals(h.first, '3_eins')
+        h.second = '1_zwei'
+        self.assertEquals(h.second, '1_zwei')
+        self.assertEquals(h[2], '1_zwei')
+        self.assertEquals(h['second'], '1_zwei')
+        
+        # add another field and data
+        h.fields['third'] = 3
+        h.third = '1_drei'
+        self.assertEquals(h.third, '1_drei')
+        self.assertEquals(h[3], '1_drei')
+        self.assertEquals(h['third'], '1_drei')
+        h['third'] = '2_drei'
+        self.assertEquals(h.third, '2_drei')
+        self.assertEquals(h[3], '2_drei')
+        self.assertEquals(h['third'], '2_drei')
+        
+        # implicit nice to raw conversion
+        h.fields['rounds'] = 4
+        h.fmt[4] = '<q'
+        h[4] = 3000
+        self.assertEquals(h.rounds, 3000)
+        self.assertEquals(h.b.rounds, '\xb8\x0b\x00\x00\x00\x00\x00\x00')
+        self.assertEquals(h.b['rounds'], '\xb8\x0b\x00\x00\x00\x00\x00\x00')
+        self.assertEquals(h.b[4], '\xb8\x0b\x00\x00\x00\x00\x00\x00')
+        h['rounds'] = 3001
+        self.assertEquals(h.rounds, 3001)
+        self.assertEquals(h.b.rounds, '\xb9\x0b\x00\x00\x00\x00\x00\x00')
+        self.assertEquals(h.b['rounds'], '\xb9\x0b\x00\x00\x00\x00\x00\x00')
+        self.assertEquals(h.b[4], '\xb9\x0b\x00\x00\x00\x00\x00\x00')
+        h.rounds = 3002
+        self.assertEquals(h.rounds, 3002)
+        self.assertEquals(h.b.rounds, '\xba\x0b\x00\x00\x00\x00\x00\x00')
+        self.assertEquals(h.b['rounds'], '\xba\x0b\x00\x00\x00\x00\x00\x00')
+        self.assertEquals(h.b[4], '\xba\x0b\x00\x00\x00\x00\x00\x00')
+        
+        h.b[4] = '\x70\x17\x00\x00\x00\x00\x00\x00'
+        self.assertEquals(h.rounds, 6000)
+        self.assertEquals(h.b.rounds, '\x70\x17\x00\x00\x00\x00\x00\x00')
+        self.assertEquals(h.b['rounds'], '\x70\x17\x00\x00\x00\x00\x00\x00')
+        self.assertEquals(h.b[4], '\x70\x17\x00\x00\x00\x00\x00\x00')
+        h.b['rounds'] = '\x71\x17\x00\x00\x00\x00\x00\x00'
+        self.assertEquals(h.rounds, 6001)
+        self.assertEquals(h.b.rounds, '\x71\x17\x00\x00\x00\x00\x00\x00')
+        self.assertEquals(h.b['rounds'], '\x71\x17\x00\x00\x00\x00\x00\x00')
+        self.assertEquals(h.b[4], '\x71\x17\x00\x00\x00\x00\x00\x00')
+        h.b.rounds = '\x72\x17\x00\x00\x00\x00\x00\x00'
+        self.assertEquals(h.rounds, 6002)
+        self.assertEquals(h.b.rounds, '\x72\x17\x00\x00\x00\x00\x00\x00')
+        self.assertEquals(h.b['rounds'], '\x72\x17\x00\x00\x00\x00\x00\x00')
+        self.assertEquals(h.b[4], '\x72\x17\x00\x00\x00\x00\x00\x00')
+        
+        # raw interface without conversation
+        h.fields['hash'] = 5
+        h.hash = '\x91.\xc8\x03\xb2\xceI\xe4\xa5A\x06\x8dIZ'
+        self.assertEquals(h.hash, '\x91.\xc8\x03\xb2\xceI\xe4\xa5A\x06\x8dIZ')
+        self.assertEquals(h.b.hash, '\x91.\xc8\x03\xb2\xceI\xe4\xa5A\x06\x8dIZ')
+        #assert False
+
 # created with KeePassX 0.4.3
 absfile2 = os.path.abspath('tests/sample7_kpx.kdb')
 # created with KeePass 2.19 on linux

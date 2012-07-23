@@ -28,6 +28,111 @@ class HeaderDict(dict):
         dict.__setitem__(self, key, HeaderField(val, func(val)))
 
 
+class HeaderDictionary(dict):
+    """
+    A dictionary on steroids for comfortable header field storage and 
+    manipulation.
+    
+    Header fields must be defined in the `fields` property before filling the
+    dictionary with data. The `fields` property is a simple dictionary, where
+    keys are field names (string) and values are field ids (int)::
+    
+        >>> h.fields['rounds'] = 4
+    
+    Now you can set and get values using the field id or the field name
+    interchangeably::
+    
+        >>> h[4] = 3000
+        >>> print h['rounds']
+        3000
+        >>> h['rounds'] = 6000
+        >>> print h[4]
+        6000
+    
+    It is also possible to get and set data using the field name as an 
+    attribute::
+    
+        >>> h.rounds = 9000
+        >>> print h[4]
+        9000
+        >>> print h.rounds
+        9000
+    
+    For some fields it is more comfortable to unpack their byte value into
+    a numeric or character value (eg. the transformation rounds). For those
+    fields add a format string to the `fmt` dictionary. Use the field id as
+    key::
+    
+        >>> h.fmt[4] = '<q'
+    
+    Continue setting the value as before if you have it as a number and if you
+    need it as a number, get it like before. Only when you have the packed value
+    use a different interface::
+    
+        >>> h.b.rounds = '\x70\x17\x00\x00\x00\x00\x00\x00'
+        >>> print h.b.rounds
+        '\x70\x17\x00\x00\x00\x00\x00\x00'
+        >>> print h.rounds
+        6000
+    
+    The `b` (binary?) attribute is a special way to set and get data in its 
+    packed format, while the usual attribute or dictionary access allows
+    setting and getting a numeric value::
+    
+        >>> h.rounds = 3000
+        >>> print h.b.rounds
+        '\xb8\x0b\x00\x00\x00\x00\x00\x00'
+        >>> print h.rounds
+        3000
+    
+    """
+    fields = {}
+    fmt = {}
+
+    def __init__(self, *args):
+        dict.__init__(self, *args)
+
+    def __getitem__(self, key):
+        if isinstance(key, int):
+            return dict.__getitem__(self, key)
+        else:
+            return dict.__getitem__(self, self.fields[key])
+
+    def __setitem__(self, key, val):
+        if isinstance(key, int):
+            dict.__setitem__(self, key, val)
+        else:
+            dict.__setitem__(self, self.fields[key], val)
+
+    def __getattr__(self, key):
+        class wrap(object):
+            def __init__(self, d):
+                object.__setattr__(self, 'd', d)
+            def __getitem__(self, key):
+                fmt = self.d.fmt.get(self.d.fields.get(key, key))
+                if fmt: return struct.pack(fmt, self.d[key])
+                else: return self.d[key]
+            __getattr__ = __getitem__
+            def __setitem__(self, key, val):
+                fmt = self.d.fmt.get(self.d.fields.get(key, key))
+                if fmt: self.d[key] = struct.unpack(fmt, val)[0]
+                else: self.d[key] = val
+            __setattr__ = __setitem__
+        
+        if key == 'b':
+            return wrap(self)
+        try:
+            return self.__getitem__(key)
+        except KeyError:
+            raise AttributeError(key)
+
+    def __setattr__(self, key, val):
+        try:
+            return self.__setitem__(key, val)
+        except KeyError:
+            return dict.__setattr__(self, key, val)
+
+
 # file baseclass
 
 import io
