@@ -103,7 +103,7 @@ class TestCommon(unittest.TestCase):
         #self.assertRaises(KeyError, h[3])
 
     def test_header_dict_new(self):
-        h = keepass.common.HeaderDict2()
+        h = keepass.common.HeaderDictionary()
         # configure fields
         h.fields = {'first': 1, 'second': 2}
         
