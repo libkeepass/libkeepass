@@ -88,21 +88,6 @@ class TestModule(unittest.TestCase):
 class TestCommon(unittest.TestCase):
 
     def test_header_dict(self):
-        h = keepass.common.HeaderDict()
-        h[1] = "eins"
-        self.assertEquals(h[1].raw, "eins")
-        self.assertEquals(h[1].val, "eins")
-        h.fields['first'] = 1
-        self.assertEquals(h['first'].raw, "eins")
-        self.assertEquals(h['first'].val, "eins")
-        h[2] = "zwei"
-        h.fields['second'] = 2
-        self.assertEquals(h['second'].raw, "zwei")
-        self.assertEquals(h['second'].val, "zwei")
-        self.assertRaises(KeyError, h['third'])
-        #self.assertRaises(KeyError, h[3])
-
-    def test_header_dict_new(self):
         h = keepass.common.HeaderDictionary()
         # configure fields
         h.fields = {'first': 1, 'second': 2}

@@ -2,32 +2,6 @@
 
 # file header
 
-from collections import namedtuple
-
-HeaderField = namedtuple('HeaderField', ['raw', 'val'])
-
-class HeaderDict(dict):
-    fields = {}
-    transform = {}
-
-    def __init__(self, *args):
-        dict.__init__(self, args)
-
-    def __getitem__(self, key):
-        if isinstance(key, int):
-            val = dict.__getitem__(self, key)
-        else:
-            key = self.fields.get(key)
-            if key is None:
-                return None
-            val =  dict.__getitem__(self, key)
-        return val
-
-    def __setitem__(self, key, val):
-        func = self.transform.get(key, lambda x: x)
-        dict.__setitem__(self, key, HeaderField(val, func(val)))
-
-
 class HeaderDictionary(dict):
     """
     A dictionary on steroids for comfortable header field storage and 

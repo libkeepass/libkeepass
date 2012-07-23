@@ -10,13 +10,13 @@ from crypto import xor, sha256, aes_cbc_decrypt
 from crypto import transform_key, unpad
 
 from common import load_keyfile, stream_unpack
-from common import KDBFile, HeaderDict
+from common import KDBFile, HeaderDictionary
 
 
 KDB3_SIGNATURE = (0x9AA2D903, 0xB54BFB65)
 
 
-class KDB3Header(HeaderDict):
+class KDB3Header(HeaderDictionary):
     fields = {
         # encryption type/flag
         'Flags': 0,
@@ -35,17 +35,7 @@ class KDB3Header(HeaderDict):
         'KeyEncRounds': 8,
         }
 
-    transform = {
-        0: lambda x: struct.unpack('<I', x)[0],
-        1: lambda x: x.encode('hex'),
-        2: lambda x: x.encode('hex'),
-        3: lambda x: x.encode('hex'),
-        4: lambda x: struct.unpack('<I', x)[0],
-        5: lambda x: struct.unpack('<I', x)[0],
-        6: lambda x: x.encode('hex'),
-        7: lambda x: x.encode('hex'),
-        8: lambda x: struct.unpack('<I', x)[0],
-        }
+    fmt = { 0: '<I', 4: '<I', 5: '<I', 8: '<I' }
 
     lengths = [4, 4, 16, 16, 4, 4, 32, 32, 4]
 
@@ -83,7 +73,7 @@ class KDB3File(KDBFile):
         while True:
             length = self.header.lengths[field_id]
             data = stream_unpack(stream, None, length, '{}s'.format(length))
-            self.header[field_id] = data
+            self.header.b[field_id] = data
             
             field_id += 1
             if field_id > 8:
@@ -105,10 +95,10 @@ class KDB3File(KDBFile):
         stream.seek(self.header_length)
         
         data = aes_cbc_decrypt(stream.read(), self.master_key, 
-            self.header['EncryptionIV'].raw)
+            self.header.EncryptionIV)
         data = unpad(data)
         
-        if self.header['ContentHash'].raw == sha256(data):
+        if self.header.ContentHash == sha256(data):
             self.in_buffer = io.BytesIO(data)
         else:
             raise IOError('Master key invalid.')
@@ -127,9 +117,9 @@ class KDB3File(KDBFile):
         composite = self.keys[0]
         
         tkey = transform_key(composite, 
-            self.header['MasterSeed2'].raw, 
-            self.header['KeyEncRounds'].val)
-        self.master_key = sha256(self.header['MasterSeed'].raw + tkey)
+            self.header.MasterSeed2, 
+            self.header.KeyEncRounds)
+        self.master_key = sha256(self.header.MasterSeed + tkey)
 
 
 class KDBExtension:

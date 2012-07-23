@@ -13,7 +13,7 @@ from crypto import transform_key, pad, unpad
 
 from common import load_keyfile, stream_unpack
 
-from common import KDBFile, HeaderDict
+from common import KDBFile, HeaderDictionary
 from reader import HashedBlockIO
 
 
@@ -21,7 +21,7 @@ KDB4_SALSA20_IV = bytes('e830094b97205d2a'.decode('hex'))
 KDB4_SIGNATURE = (0x9AA2D903, 0xB54BFB67)
 
 
-class KDB4Header(HeaderDict):
+class KDB4Header(HeaderDictionary):
     fields = {
         'EndOfHeader' : 0,
         'Comment' : 1,
@@ -45,17 +45,7 @@ class KDB4Header(HeaderDict):
         'InnerRandomStreamID' : 10,
         }
 
-    transform = {
-        2: lambda x: uuid.UUID(bytes=x),
-        3: lambda x: struct.unpack('<I', x)[0],
-        4: lambda x: x.encode('hex'),
-        5: lambda x: x.encode('hex'),
-        6: lambda x: struct.unpack('<q', x)[0],
-        7: lambda x: x.encode('hex'),
-        8: lambda x: x.encode('hex'),
-        9: lambda x: x.encode('hex'),
-        10: lambda x: x.encode('hex'),
-        }
+    fmt = { 3: '<I', 6: '<q' }
 
 class KDB4File(KDBFile):
     def __init__(self, stream=None, **credentials):
@@ -73,7 +63,7 @@ class KDB4File(KDBFile):
             raise TypeError('Stream does not have the buffer interface.')
         self._read_header(stream)
         self._decrypt(stream)
-        if self.header['CompressionFlags'].val == 1:
+        if self.header.CompressionFlags == 1:
             self._unzip()
 
     def write_to(self, stream):
@@ -92,7 +82,7 @@ class KDB4File(KDBFile):
             self.out_buffer = io.BytesIO(self.in_buffer.read())
         
         # zip or not according to header setting
-        if self.header['CompressionFlags'].val == 1:
+        if self.header.CompressionFlags == 1:
             self._zip()
         
         self._encrypt()
@@ -126,7 +116,7 @@ class KDB4File(KDBFile):
             length = stream_unpack(stream, None, 2, 'h')
             if length > 0:
                 data = stream_unpack(stream, None, length, '{}s'.format(length))
-                self.header[field_id] = data
+                self.header.b[field_id] = data
             
             # set position in data stream of end of header
             if field_id == 0:
@@ -152,7 +142,7 @@ class KDB4File(KDBFile):
         field_ids.sort()
         field_ids.reverse() # field_id 0 must be last
         for field_id in field_ids:
-            value = self.header[field_id].raw
+            value = self.header.b[field_id]
             length = len(value)
             header.extend(struct.pack('<b', field_id))
             header.extend(struct.pack('<h', length))
@@ -181,11 +171,11 @@ class KDB4File(KDBFile):
         stream.seek(self.header_length)
         
         data = aes_cbc_decrypt(stream.read(), self.master_key, 
-            self.header['EncryptionIV'].raw)
+            self.header.EncryptionIV)
         data = unpad(data)
         
-        length = len(self.header['StreamStartBytes'].raw)
-        if self.header['StreamStartBytes'].raw == data[:length]:
+        length = len(self.header.StreamStartBytes)
+        if self.header.StreamStartBytes == data[:length]:
             # skip startbytes and wrap data in a hashed block io
             self.in_buffer = HashedBlockIO(bytes=data[length:])
         else:
@@ -206,7 +196,7 @@ class KDB4File(KDBFile):
         # data is buffered in hashed block io, start a new one
         self.out_buffer = io.BytesIO()
         # write start bytes (for successful decrypt check)
-        self.out_buffer.write(self.header['StreamStartBytes'].raw)
+        self.out_buffer.write(self.header.StreamStartBytes)
         # append blocked data to out-buffer
         block_buffer.write_block_stream(self.out_buffer)
         block_buffer.close()
@@ -215,7 +205,7 @@ class KDB4File(KDBFile):
         # encrypt the whole thing with header settings and master key
         data = pad(self.out_buffer.read())
         self.out_buffer = aes_cbc_encrypt(data, self.master_key, 
-            self.header['EncryptionIV'].raw)
+            self.header.EncryptionIV)
 
     def _unzip(self):
         """
@@ -249,9 +239,9 @@ class KDB4File(KDBFile):
             raise IOError('No credentials found.')
         composite = sha256(''.join(self.keys))
         tkey = transform_key(composite, 
-            self.header['TransformSeed'].raw, 
-            self.header['TransformRounds'].val)
-        self.master_key = sha256(self.header['MasterSeed'].raw + tkey)
+            self.header.TransformSeed, 
+            self.header.TransformRounds)
+        self.master_key = sha256(self.header.MasterSeed + tkey)
 
 
 from lxml import etree
@@ -270,7 +260,7 @@ class KDBXmlExtension:
     def __init__(self, unprotect=True):
         self._salsa_buffer = bytearray()
         self.salsa = Salsa20(
-            sha256(self.header['ProtectedStreamKey'].raw), 
+            sha256(self.header.ProtectedStreamKey), 
             KDB4_SALSA20_IV)
         
         self.in_buffer.seek(0)
