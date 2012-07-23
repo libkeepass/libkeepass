@@ -52,6 +52,12 @@ class KDB4File(KDBFile):
         self.header = KDB4Header()
         KDBFile.__init__(self, stream, **credentials)
 
+    def set_compression(self, flag=1):
+        """Dis- (0) or enable (default: 1) compression"""
+        if flag not in [0, 1]:
+            raise ValueError('Compression flag can be 0 or 1.')
+        self.header.CompressionFlags = flag
+
     def read_from(self, stream):
         """
         Read, parse, decrypt, decompress a KeePass file from a stream.
