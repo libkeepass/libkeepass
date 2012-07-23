@@ -57,6 +57,9 @@ Examples
         kdb.clear_credentials()
         kdb.add_credentials(password="m04r_s3cr37")
         
+        # disable compression
+        kdb.set_compression(0)
+        
         # write to a new file
         with open('output', 'wb') as output:
             kdb.write_to(output)
