@@ -26,14 +26,15 @@ KeePass 2.x support
 The v4 reader can output the decrypted XML document that format is based on.
 It is also available as parsed objectified element tree.
 
-In v4 the password elements are protected in addition to the AES encryption of
-the whole document. Protecting and un-protecting again (eg. after modification)
-is already supported, but encrypting the whole document not.
-
 The v4 reader supports passwords and key-file protection.
 
-There is basic write support. The opened decrypted document is held in the 
-in-buffer, which can be modified and written back to a valid KeePass file.
+In v4 the password elements are protected in addition to the AES encryption of
+the whole database.
+
+There is basic "save as" write support. The opened decrypted database is held in
+the in-buffer and parsed into an element tree, which can be modified. When
+writing the KeePass file, the element tree is serialized, compressed and
+encrypted according to the settings in the file header and written to a stream.
 
 Examples
 --------
