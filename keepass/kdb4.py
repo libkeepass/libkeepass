@@ -133,11 +133,9 @@ class KDB4File(KDBFile):
         # serialize header to stream
         header = bytearray()
         # write file signature
-        header.extend(struct.pack('<I', KDB4_SIGNATURE[0]))
-        header.extend(struct.pack('<I', KDB4_SIGNATURE[1]))
+        header.extend(struct.pack('<II', *KDB4_SIGNATURE))
         # and version
-        header.extend(struct.pack('<h', 0))
-        header.extend(struct.pack('<h', 3))
+        header.extend(struct.pack('<hh', 0, 3))
         
         field_ids = self.header.keys()
         field_ids.sort()
