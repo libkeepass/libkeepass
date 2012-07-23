@@ -263,7 +263,8 @@ class KDBXmlExtension:
             KDB4_SALSA20_IV)
         
         self.in_buffer.seek(0)
-        self.obj_root = objectify.parse(self.in_buffer).getroot()
+        self.tree = objectify.parse(self.in_buffer)
+        self.obj_root = self.tree.getroot()
         
         if unprotect:
             self.unprotect()
@@ -305,8 +306,8 @@ class KDBXmlExtension:
 
     def pretty_print(self):
         """Return a serialization of the element tree."""
-        #TODO write xml header!
-        return etree.tostring(self.obj_root, pretty_print=True)
+        return etree.tostring(self.obj_root, pretty_print=True, 
+            encoding='utf-8', standalone=True)
 
     def write_to(self, stream):
         if self.out_buffer is None:
@@ -373,6 +374,6 @@ class KDB4Reader(KDB4File, KDBXmlExtension):
         KDBXmlExtension.__init__(self, unprotect)
 
     def write_to(self, stream):
-        #KDBXmlExtension.write_to(self, stream)
+        KDBXmlExtension.write_to(self, stream)
         KDB4File.write_to(self, stream)
 
