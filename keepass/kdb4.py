@@ -14,7 +14,7 @@ from crypto import transform_key, pad, unpad
 from common import load_keyfile, stream_unpack
 
 from common import KDBFile, HeaderDictionary
-from reader import HashedBlockIO
+from hbio import HashedBlockIO
 
 
 KDB4_SALSA20_IV = bytes('e830094b97205d2a'.decode('hex'))
