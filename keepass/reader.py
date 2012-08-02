@@ -15,11 +15,11 @@ def read_int(stream, length):
 
 class HashedBlockIO(io.BytesIO):
     """
-    The decrypted data is stored in hashed blocks. Each block consists of 
-    a block index (4 bytes), the hash (32 bytes) and the block length (4 bytes),
-    followed by the block data. The block index starts counting at 0. The 
-    block hash is a SHA-256 hash of the block data. A block has a maximum
-    length of BLOCK_LENGTH, but can be shorter.
+    The data is stored in hashed blocks. Each block consists of a block index (4
+    bytes), the hash (32 bytes) and the block length (4 bytes), followed by the
+    block data. The block index starts counting at 0. The block hash is a
+    SHA-256 hash of the block data. A block has a maximum length of
+    BLOCK_LENGTH, but can be shorter.
     
     Provide a I/O stream containing the hashed block data as the `block_stream`
     argument when creating a HashedBlockReader. Alternatively the `bytes`
