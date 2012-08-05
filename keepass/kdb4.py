@@ -185,6 +185,8 @@ class KDB4File(KDBFile):
         
         length = len(self.header.StreamStartBytes)
         if self.header.StreamStartBytes == data[:length]:
+            # set successful decryption flag
+            self.opened = True
             # skip startbytes and wrap data in a hashed block io
             self.in_buffer = HashedBlockIO(bytes=data[length:])
         else:

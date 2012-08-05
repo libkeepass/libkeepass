@@ -123,6 +123,8 @@ class KDBFile:
         self.out_buffer = None
         # position into the _buffer where the encrypted data stream begins
         self.header_length = None
+        # decryption success flag
+        self.opened = False
         
         # the raw/basic file handle, expect it to be closed after __init__!
         if stream is not None:
