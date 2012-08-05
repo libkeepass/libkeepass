@@ -47,6 +47,7 @@ class KDB4Header(HeaderDictionary):
 
     fmt = { 3: '<I', 6: '<q' }
 
+
 class KDB4File(KDBFile):
     def __init__(self, stream=None, **credentials):
         self.header = KDB4Header()
@@ -68,10 +69,7 @@ class KDB4File(KDBFile):
         :arg stream: A file-like object (opened in 'rb' mode) or IO buffer
             containing a KeePass file.
         """
-        if not (isinstance(stream, io.IOBase) or isinstance(stream, file)):
-            raise TypeError('Stream does not have the buffer interface.')
-        self._read_header(stream)
-        self._decrypt(stream)
+        super(KDB4File, self).read_from(stream)
         if self.header.CompressionFlags == 1:
             self._unzip()
 
@@ -172,12 +170,7 @@ class KDB4File(KDBFile):
         Remove padding as needed and feed into hashed block reader, set as
         in-buffer.
         """
-        self._make_master_key()
-        
-        # move read pointer beyond the file header
-        if self.header_length is None:
-            raise IOError('Header length unknown. Parse the header first!')
-        stream.seek(self.header_length)
+        super(KDB4File, self)._decrypt(stream)
         
         data = aes_cbc_decrypt(stream.read(), self.master_key, 
             self.header.EncryptionIV)
@@ -185,10 +178,10 @@ class KDB4File(KDBFile):
         
         length = len(self.header.StreamStartBytes)
         if self.header.StreamStartBytes == data[:length]:
-            # set successful decryption flag
-            self.opened = True
             # skip startbytes and wrap data in a hashed block io
             self.in_buffer = HashedBlockIO(bytes=data[length:])
+            # set successful decryption flag
+            self.opened = True
         else:
             raise IOError('Master key invalid.')
 
@@ -233,7 +226,7 @@ class KDB4File(KDBFile):
         """
         data = self.out_buffer.read()
         self.out_buffer = io.BytesIO()
-        # note: compresslevel=6 seems to be important!
+        # note: compresslevel=6 seems to be important for kdb4!
         gz = gzip.GzipFile(fileobj=self.out_buffer, mode='wb', compresslevel=6)
         gz.write(data)
         gz.close()
@@ -246,8 +239,7 @@ class KDB4File(KDBFile):
         for a specific number of rounds and (3) finally hashing the result in 
         combination with the master seed.
         """
-        if len(self.keys) == 0:
-            raise IOError('No credentials found.')
+        super(KDB4File, self)._make_master_key()
         composite = sha256(''.join(self.keys))
         tkey = transform_key(composite, 
             self.header.TransformSeed, 

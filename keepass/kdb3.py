@@ -53,12 +53,6 @@ class KDB3File(KDBFile):
         self.header = KDB3Header()
         KDBFile.__init__(self, stream, **credentials)
 
-    def read_from(self, stream):
-        if not isinstance(stream, io.IOBase):
-            raise TypeError('Stream does not have the buffer interface.')
-        self._read_header(stream)
-        self._decrypt(stream)
-
     def _read_header(self, stream):
         """
         Parses the header and write the values into self.header. Also sets
@@ -84,22 +78,17 @@ class KDB3File(KDBFile):
             raise IOError('Unexpected header length! What did you do!?')
 
     def _decrypt(self, stream):
-        if len(self.keys) == 0:
-            raise IOError('No credentials found.')
-        
-        self._make_master_key()
-        
-        # move read pointer beyond the file header
-        if self.header_length is None:
-            raise IOError('Header length unknown. Parse the header first!')
-        stream.seek(self.header_length)
+        super(KDB3File, self)._decrypt(stream)
         
         data = aes_cbc_decrypt(stream.read(), self.master_key, 
             self.header.EncryptionIV)
         data = unpad(data)
         
         if self.header.ContentHash == sha256(data):
+            # put data in bytes io
             self.in_buffer = io.BytesIO(data)
+            # set successful decryption flag
+            self.opened = True
         else:
             raise IOError('Master key invalid.')
 
@@ -110,12 +99,12 @@ class KDB3File(KDBFile):
         for a specific number of rounds and (3) finally hashing the result in 
         combination with the master seed.
         """
+        super(KDB3File, self)._make_master_key()
         #print "masterkey:", ''.join(self.keys).encode('hex')
         #composite = sha256(''.join(self.keys))
         #TODO python-keepass does not support keyfiles, there seems to be a
         # different way to hash those keys in kdb3
         composite = self.keys[0]
-        
         tkey = transform_key(composite, 
             self.header.MasterSeed2, 
             self.header.KeyEncRounds)

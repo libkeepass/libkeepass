@@ -112,18 +112,22 @@ class HeaderDictionary(dict):
 import io
 from crypto import sha256
 
-class KDBFile:
+class KDBFile(object):
     def __init__(self, stream=None, **credentials):
         # list of hashed credentials (pre-transformation)
         self.keys = []
         self.add_credentials(**credentials)
         
-        # the decrypted/decompressed stream reader
+        # the buffer containing the decrypted/decompressed payload from a file
         self.in_buffer = None
+        # the buffer filled with data for writing back to a file before 
+        # encryption/compression
         self.out_buffer = None
-        # position into the _buffer where the encrypted data stream begins
+        # position in the `in_buffer` where the payload begins
         self.header_length = None
-        # decryption success flag
+        # decryption success flag, set this to true upon verification of the
+        # encryption masterkey. if this is True `in_buffer` must contain
+        # clear data.
         self.opened = False
         
         # the raw/basic file handle, expect it to be closed after __init__!
@@ -133,11 +137,24 @@ class KDBFile:
             self.read_from(stream)
 
     def read_from(self, stream):
-        # implement parsing/decrypting/etc and finally set self.in_buffer
-        pass
+        if not (isinstance(stream, io.IOBase) or isinstance(stream, file)):
+            raise TypeError('Stream does not have the buffer interface.')
+        self._read_header(stream)
+        self._decrypt(stream)
+
+    def _read_header(self, stream):
+        raise NotImplementedError('The _read_header method was not '
+            'implemented propertly.')
+
+    def _decrypt(self, stream):
+        self._make_master_key()
+        # move read pointer beyond the file header
+        if self.header_length is None:
+            raise IOError('Header length unknown. Parse the header first!')
+        stream.seek(self.header_length)
 
     def write_to(self, stream):
-        pass
+        raise NotImplementedError('The write_to() method was not implemented.')
 
     def add_credentials(self, **credentials):
         if credentials.has_key('password'):
@@ -158,13 +175,18 @@ class KDBFile:
         if key_hash is not None:
             self.keys.append(key_hash)
 
+    def _make_master_key(self):
+        if len(self.keys) == 0:
+            raise IndexError('No credentials found.')
+
     def close(self):
         if self.in_buffer:
             self.in_buffer.close()
 
     def read(self, n=-1):
         """
-        Read the decrypted and uncompressed data. It is XMl data in KDB4.
+        Read the decrypted and uncompressed data after the file header.
+        For example, in KDB4 this would be plain, utf-8 xml.
         
         Note that this is the source data for the lxml.objectify element tree 
         at `self.obj_root`. Any changes made to the parsed element tree will 

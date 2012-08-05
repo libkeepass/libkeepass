@@ -197,17 +197,19 @@ class TestKDB4(unittest.TestCase):
         kdb = keepass.KDB4Reader()
         with self.assertRaisesRegexp(TypeError, "Stream does not have the buffer interface."):
             kdb.read_from(absfile1)
-        with self.assertRaisesRegexp(IOError, "No credentials found."):
+        with self.assertRaisesRegexp(IndexError, "No credentials found."):
             with open(absfile1, 'rb') as fh:
                 kdb.read_from(fh)
         kdb.add_credentials(password='asdf')
         with open(absfile1, 'rb') as fh:
             kdb.read_from(fh)
+        self.assertEquals(kdb.opened, True)
         self.assertEquals(kdb.read(32), '<?xml version="1.0" encoding="ut')
 
     def test_write_file(self):
         # valid password and plain keyfile, compressed kdb
         with keepass.open(absfile1, password="asdf") as kdb:
+            self.assertEquals(kdb.opened, True)
             self.assertEquals(kdb.read(32), '<?xml version="1.0" encoding="ut')
             kdb.set_compression(0)
             #kdb.set_comment("this is pretty cool!")
@@ -219,6 +221,7 @@ class TestKDB4(unittest.TestCase):
             self.assertEquals(kdb.read(32), "<?xml version='1.0' encoding='ut")
 
         with keepass.open(absfile4, password="qwer", keyfile=keyfile4) as kdb:
+            self.assertEquals(kdb.opened, True)
             self.assertEquals(kdb.read(32), '<?xml version="1.0" encoding="ut')
             with open(output4, 'w') as outfile:
                 kdb.write_to(outfile)
@@ -231,7 +234,7 @@ class TestKDB4(unittest.TestCase):
             with keepass.open(filename1, password="asdf"):
                 pass
         # invalid password
-        with self.assertRaisesRegexp(IOError, "No credentials found."):
+        with self.assertRaisesRegexp(IndexError, "No credentials found."):
             with keepass.open(absfile1):
                 pass
         # invalid password
@@ -246,21 +249,25 @@ class TestKDB4(unittest.TestCase):
         # old kdb file
         with keepass.open(absfile2, password="asdf") as kdb:
             self.assertIsNotNone(kdb)
+            self.assertEquals(kdb.opened, True)
 
         # valid password
         with keepass.open(absfile1, password="asdf") as kdb:
             self.assertIsNotNone(kdb)
+            self.assertEquals(kdb.opened, True)
             self.assertIsInstance(kdb, keepass.kdb4.KDB4Reader)
 
 
         # valid password and xml keyfile
         with keepass.open(absfile3, password="asdf", keyfile=keyfile3) as kdb:
             self.assertIsNotNone(kdb)
+            self.assertEquals(kdb.opened, True)
             self.assertIsInstance(kdb, keepass.kdb4.KDB4Reader)
 
         # valid password and plain keyfile, compressed kdb
         with keepass.open(absfile4, password="qwer", keyfile=keyfile4) as kdb:
             self.assertIsNotNone(kdb)
+            self.assertEquals(kdb.opened, True)
             self.assertIsInstance(kdb, keepass.kdb4.KDB4Reader)
             
             # read raw data
