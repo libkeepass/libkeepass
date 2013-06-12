@@ -284,9 +284,10 @@ class KDBXmlExtension:
         self._reset_salsa()
         self.obj_root.Meta.MemoryProtection.ProtectPassword._setText('False')
         for elem in self.obj_root.iterfind('.//Value[@Protected="True"]'):
-            elem.set('ProtectedValue', elem.text)
-            elem.set('Protected', 'False')
-            elem._setText(self._unprotect(elem.text))
+            if elem.text is not None:
+                elem.set('ProtectedValue', elem.text)
+                elem.set('Protected', 'False')
+                elem._setText(self._unprotect(elem.text))
 
     def protect(self):
         """
