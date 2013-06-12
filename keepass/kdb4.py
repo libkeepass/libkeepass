@@ -329,7 +329,7 @@ class KDBXmlExtension:
         Returns the next section of the "random" Salsa20 bytes with the 
         requested `length`.
         """
-        if length > len(self._salsa_buffer):
+        while length > len(self._salsa_buffer):
             new_salsa = self.salsa.encryptBytes(str(bytearray(64)))
             self._salsa_buffer.extend(new_salsa)
         nacho = self._salsa_buffer[:length]
