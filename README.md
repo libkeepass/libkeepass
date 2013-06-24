@@ -11,7 +11,7 @@ Warning
 Requirements
 ------------
 
- - PyCrypto
+see requirements.txt
 
 KeePass 1.x support
 -------------------
@@ -69,6 +69,15 @@ Examples
         # write to a new file
         with open('output', 'wb') as output:
             kdb.write_to(output)
+
+Testing
+-------
+
+Make a virtualenv and install the requirements. Then run the tests script::
+
+    pip install -r requirements.txt
+    nosetests tests/tests.py
+
 
 References
 ----------
