@@ -3,6 +3,9 @@ import os
 import sys
 import unittest
 
+sys.path.append(os.path.abspath("."))
+sys.path.append(os.path.abspath(".."))
+
 from keepass.crypto import sha256, transform_key, aes_cbc_decrypt, xor, pad
 from keepass.crypto import AES_BLOCK_SIZE
 
