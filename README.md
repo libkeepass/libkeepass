@@ -1,3 +1,8 @@
+**this library is not under active development anymore.**
+
+If you find the code useful or find a problem, please fork the repository to apply your changes!
+
+
 libkeepass
 ==========
 
