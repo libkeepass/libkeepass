@@ -81,18 +81,7 @@ class KDB4File(KDBFile):
         """
         if not (isinstance(stream, io.IOBase) or isinstance(stream, file)):
             raise TypeError('Stream does not have the buffer interface.')
-        
-        # start an out-buffer and fill it with the current in-buffer
-        # (containing xml data)
-        if self.out_buffer is None:
-            self.in_buffer.seek(0)
-            self.out_buffer = io.BytesIO(self.in_buffer.read())
-        
-        # zip or not according to header setting
-        if self.header.CompressionFlags == 1:
-            self._zip()
-        
-        self._encrypt()
+
         self._write_header(stream)
 
     def _read_header(self, stream):
@@ -131,13 +120,11 @@ class KDB4File(KDBFile):
                 break
 
     def _write_header(self, stream):
-        """
-        Serialize the header fields from self.header into a byte stream, prefix
+        """Serialize the header fields from self.header into a byte stream, prefix
         with file signature and version before writing header and out-buffer
         to `stream`.
         
-        Note, that `stream` is flushed, but not closed!
-        """
+        Note, that `stream` is flushed, but not closed!"""
         # serialize header to stream
         header = bytearray()
         # write file signature
@@ -155,8 +142,24 @@ class KDB4File(KDBFile):
             header.extend(struct.pack('<h', length))
             header.extend(struct.pack('{}s'.format(length), value))
         
+
         # write header to stream
         stream.write(header)
+        
+        self.headerHash = base64.b64encode(sha256(header))
+        self.obj_root.Meta.HeaderHash = self.headerHash
+
+        print self.headerHash
+
+        # reload out_buffer because we just changed the HeaderHash
+        self.protect()
+        self.out_buffer = io.BytesIO(self.pretty_print())
+
+        # zip or not according to header setting
+        if self.header.CompressionFlags == 1:
+            self._zip()
+
+        self._encrypt();
         
         # write encrypted block to stream
         stream.write(self.out_buffer)
