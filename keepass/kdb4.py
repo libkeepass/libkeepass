@@ -146,10 +146,12 @@ class KDB4File(KDBFile):
         # write header to stream
         stream.write(header)
         
-        self.headerHash = base64.b64encode(sha256(header))
-        self.obj_root.Meta.HeaderHash = self.headerHash
-
-        print self.headerHash
+        headerHash = base64.b64encode(sha256(header))
+        self.obj_root.Meta.HeaderHash = headerHash
+        
+        # create HeaderHash if it does not exist
+        if len(self.obj_root.Meta.xpath("HeaderHash")) < 1:
+            etree.SubElement(self.obj_root.Meta, "HeaderHash")
 
         # reload out_buffer because we just changed the HeaderHash
         self.protect()
