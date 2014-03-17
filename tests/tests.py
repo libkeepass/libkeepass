@@ -3,12 +3,13 @@ import os
 import sys
 import unittest
 
+import libkeepass
+
 sys.path.append(os.path.abspath("."))
 sys.path.append(os.path.abspath(".."))
 
-from keepass.crypto import sha256, transform_key, aes_cbc_decrypt, xor, pad
-from keepass.crypto import AES_BLOCK_SIZE
-
+from libkeepass.crypto import sha256, transform_key, aes_cbc_decrypt, xor, pad
+from libkeepass.crypto import AES_BLOCK_SIZE
 
 class TextCrypto(unittest.TestCase):
     def test_sha256(self):
@@ -70,33 +71,33 @@ class TestModule(unittest.TestCase):
 
     def test_get_kdb_class(self):
         # v3
-        self.assertIsNotNone(keepass.get_kdb_reader([0x9AA2D903, 0xB54BFB65]))
-        self.assertEquals(keepass.get_kdb_reader([0x9AA2D903, 0xB54BFB65]),
-            keepass.kdb3.KDB3Reader)
+        self.assertIsNotNone(libkeepass.get_kdb_reader([0x9AA2D903, 0xB54BFB65]))
+        self.assertEquals(libkeepass.get_kdb_reader([0x9AA2D903, 0xB54BFB65]),
+            libkeepass.kdb3.KDB3Reader)
         # v4
-        self.assertIsNotNone(keepass.get_kdb_reader([0x9AA2D903, 0xB54BFB67]))
-        self.assertEquals(keepass.get_kdb_reader([0x9AA2D903, 0xB54BFB67]),
-            keepass.kdb4.KDB4Reader)
+        self.assertIsNotNone(libkeepass.get_kdb_reader([0x9AA2D903, 0xB54BFB67]))
+        self.assertEquals(libkeepass.get_kdb_reader([0x9AA2D903, 0xB54BFB67]),
+            libkeepass.kdb4.KDB4Reader)
 
         # mythical pre2.x signature
         with self.assertRaisesRegexp(IOError, "Unknown sub signature."):
-            keepass.get_kdb_reader([0x9AA2D903, 0xB54BFB66, 3, 0])
+            libkeepass.get_kdb_reader([0x9AA2D903, 0xB54BFB66, 3, 0])
 
         # unknown sub signature
         with self.assertRaisesRegexp(IOError, "Unknown sub signature."):
-            keepass.get_kdb_reader([0x9AA2D903, 0xB54BFB60, 3, 0])
+            libkeepass.get_kdb_reader([0x9AA2D903, 0xB54BFB60, 3, 0])
         # valid sub signature, unknown base signature
         with self.assertRaisesRegexp(IOError, "Unknown base signature."):
-            keepass.get_kdb_reader([0x9AA2D900, 0xB54BFB65, 3, 0])
+            libkeepass.get_kdb_reader([0x9AA2D900, 0xB54BFB65, 3, 0])
         # unknown sub signature, unknown base signature
         with self.assertRaisesRegexp(IOError, "Unknown base signature."):
-            keepass.get_kdb_reader([0x9AA2D900, 0xB54BFB60, 3, 0])
+            libkeepass.get_kdb_reader([0x9AA2D900, 0xB54BFB60, 3, 0])
 
 
 class TestCommon(unittest.TestCase):
 
     def test_header_dict(self):
-        h = keepass.common.HeaderDictionary()
+        h = libkeepass.common.HeaderDictionary()
         # configure fields
         h.fields = {'first': 1, 'second': 2}
 
@@ -202,7 +203,7 @@ class TestKDB4(unittest.TestCase):
 
     def test_class_interface(self):
         """Test direct KDB4Reader class usage"""
-        kdb = keepass.KDB4Reader()
+        kdb = libkeepass.KDB4Reader()
         with self.assertRaisesRegexp(TypeError, "Stream does not have the buffer interface."):
             kdb.read_from(absfile1)
         with self.assertRaisesRegexp(IndexError, "No credentials found."):
@@ -216,7 +217,7 @@ class TestKDB4(unittest.TestCase):
 
     def test_write_file(self):
         # valid password and plain keyfile, compressed kdb
-        with keepass.open(absfile1, password="asdf") as kdb:
+        with libkeepass.open(absfile1, password="asdf") as kdb:
             self.assertEquals(kdb.opened, True)
             self.assertEquals(kdb.read(32), '<?xml version="1.0" encoding="ut')
             kdb.set_compression(0)
@@ -225,57 +226,57 @@ class TestKDB4(unittest.TestCase):
             kdb.add_credentials(password="yxcv")
             with open(output1, 'w') as outfile:
                 kdb.write_to(outfile)
-        with keepass.open(output1, password="yxcv") as kdb:
+        with libkeepass.open(output1, password="yxcv") as kdb:
             self.assertEquals(kdb.read(32), "<?xml version='1.0' encoding='ut")
 
-        with keepass.open(absfile4, password="qwer", keyfile=keyfile4) as kdb:
+        with libkeepass.open(absfile4, password="qwer", keyfile=keyfile4) as kdb:
             self.assertEquals(kdb.opened, True)
             self.assertEquals(kdb.read(32), '<?xml version="1.0" encoding="ut')
             with open(output4, 'w') as outfile:
                 kdb.write_to(outfile)
-        with keepass.open(output4, password="qwer", keyfile=keyfile4) as kdb:
+        with libkeepass.open(output4, password="qwer", keyfile=keyfile4) as kdb:
             self.assertEquals(kdb.read(32), "<?xml version='1.0' encoding='ut")
 
     def test_open_file(self):
         # file not found, proper exception gets re-raised
         with self.assertRaisesRegexp(IOError, "No such file or directory"):
-            with keepass.open(filename1, password="asdf"):
+            with libkeepass.open(filename1, password="asdf"):
                 pass
         # invalid password
         with self.assertRaisesRegexp(IndexError, "No credentials found."):
-            with keepass.open(absfile1):
+            with libkeepass.open(absfile1):
                 pass
         # invalid password
         with self.assertRaisesRegexp(IOError, "Master key invalid."):
-            with keepass.open(absfile1, password="invalid"):
+            with libkeepass.open(absfile1, password="invalid"):
                 pass
         # invalid keyfile
         with self.assertRaisesRegexp(IOError, "Master key invalid."):
-            with keepass.open(absfile1, password="invalid", keyfile="invalid"):
+            with libkeepass.open(absfile1, password="invalid", keyfile="invalid"):
                 pass
 
         # old kdb file
-        with keepass.open(absfile2, password="asdf") as kdb:
+        with libkeepass.open(absfile2, password="asdf") as kdb:
             self.assertIsNotNone(kdb)
             self.assertEquals(kdb.opened, True)
 
         # valid password
-        with keepass.open(absfile1, password="asdf") as kdb:
+        with libkeepass.open(absfile1, password="asdf") as kdb:
             self.assertIsNotNone(kdb)
             self.assertEquals(kdb.opened, True)
-            self.assertIsInstance(kdb, keepass.kdb4.KDB4Reader)
+            self.assertIsInstance(kdb, libkeepass.kdb4.KDB4Reader)
 
         # valid password and xml keyfile
-        with keepass.open(absfile3, password="asdf", keyfile=keyfile3) as kdb:
+        with libkeepass.open(absfile3, password="asdf", keyfile=keyfile3) as kdb:
             self.assertIsNotNone(kdb)
             self.assertEquals(kdb.opened, True)
-            self.assertIsInstance(kdb, keepass.kdb4.KDB4Reader)
+            self.assertIsInstance(kdb, libkeepass.kdb4.KDB4Reader)
 
         # valid password and plain keyfile, compressed kdb
-        with keepass.open(absfile4, password="qwer", keyfile=keyfile4) as kdb:
+        with libkeepass.open(absfile4, password="qwer", keyfile=keyfile4) as kdb:
             self.assertIsNotNone(kdb)
             self.assertEquals(kdb.opened, True)
-            self.assertIsInstance(kdb, keepass.kdb4.KDB4Reader)
+            self.assertIsInstance(kdb, libkeepass.kdb4.KDB4Reader)
 
             # read raw data
             tmp1 = kdb.read(32)
@@ -305,9 +306,9 @@ class TestKDB4(unittest.TestCase):
             self.assertIsNotNone(kdb.pretty_print())
 
 #        # valid password and plain keyfile, uncompressed kdb
-#        with keepass.open(absfile5, password="qwer", keyfile=keyfile5) as kdb:
+#        with libkeepass.open(absfile5, password="qwer", keyfile=keyfile5) as kdb:
 #            self.assertIsNotNone(kdb)
-#            self.assertIsInstance(kdb, keepass.kdb4.KDB4Reader)
+#            self.assertIsInstance(kdb, libkeepass.kdb4.KDB4Reader)
 #
 #            # read raw data
 #            tmp1 = kdb.read()
