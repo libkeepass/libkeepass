@@ -274,6 +274,8 @@ class KDBXmlExtension:
         self.in_buffer.seek(0)
         self.tree = objectify.parse(self.in_buffer)
         self.obj_root = self.tree.getroot()
+        objectify.deannotate(self.obj_root, xsi_nil=True)
+        etree.cleanup_namespaces(self.obj_root)
         
         if unprotect:
             self.unprotect()
