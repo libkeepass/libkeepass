@@ -50,10 +50,10 @@ settings in the file header and written to a stream.
 Examples
 --------
 
-    import keepass
+    import libkeepass
     
     filename = "input.kdbx"
-    with keepass.open(filename, password='secret', keyfile='putty.exe') as kdb:
+    with libkeepass.open(filename, password='secret', keyfile='putty.exe') as kdb:
         # print parsed element tree as xml
         print kdb.pretty_print()
         
