@@ -114,6 +114,7 @@ class HeaderDictionary(dict):
 # file baseclass
 
 import io
+from dateutil.parser import parse
 from libkeepass.crypto import sha256
 
 class KDBFile(object):
@@ -214,6 +215,12 @@ class KDBFile(object):
     def tell(self):
         if self.in_buffer:
             return self.in_buffer.tell()
+
+    def merge(self, other):
+        "Merges the other file into this one."
+        if parse(self.obj_root.Meta.DatabaseNameChanged) < parse(other.obj_root):
+            self.obj_root.Meta.DatebaseName = other.obj_root.Meta.DatabaseName
+            self.obj_root.Meta.DatebaseNameChanged = other.obj_root.Meta.DatabaseNameChanged
 
 
 # loading keyfiles
