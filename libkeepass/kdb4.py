@@ -292,7 +292,7 @@ class KDBXmlExtension:
             if elem.text is not None:
                 elem.set('ProtectedValue', elem.text)
                 elem.set('Protected', 'False')
-                elem._setText(self._unprotect(elem.text))
+                elem._setText(self._unprotect(elem.text).decode('utf-8'))
 
     def protect(self):
         """
