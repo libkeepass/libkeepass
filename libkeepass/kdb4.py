@@ -355,7 +355,7 @@ class KDBXmlExtension:
         XORs the given `string` with the next salsa and base64 encodes it.
         Returns a protected string.
         """
-        tmp = str(xor(string, self._get_salsa(len(string))))
+        tmp = str(xor(string.encode('utf-8'), self._get_salsa(len(string))))
         return base64.b64encode(tmp)
 
 class KDB4Reader(KDB4File, KDBXmlExtension):
