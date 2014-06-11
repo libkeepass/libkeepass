@@ -2,16 +2,14 @@
 import io
 from contextlib import contextmanager
 
-from common import read_signature
-from kdb3 import KDB3Reader, KDB3_SIGNATURE
-from kdb4 import KDB4Reader, KDB4_SIGNATURE
+import libkeepass.common, libkeepass.kdb3, libkeepass.kdb4
 
 BASE_SIGNATURE = 0x9AA2D903
 
 _kdb_readers = {
-    KDB3_SIGNATURE[1]: KDB3Reader,
+    kdb3.KDB3_SIGNATURE[1]: kdb3.KDB3Reader,
     #0xB54BFB66: KDB4Reader, # pre2.x may work, untested
-    KDB4_SIGNATURE[1]: KDB4Reader,
+    kdb4.KDB4_SIGNATURE[1]: kdb4.KDB4Reader,
     }
 
 @contextmanager
@@ -28,7 +26,7 @@ def open(filename, **credentials):
     kdb = None
     try:
         with io.open(filename, 'rb') as stream:
-            signature = read_signature(stream)
+            signature = common.read_signature(stream)
             cls = get_kdb_reader(signature)
             kdb = cls(stream, **credentials)
             yield kdb

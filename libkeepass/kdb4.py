@@ -8,16 +8,16 @@ import hashlib
 import base64
 
 
-from crypto import xor, sha256, aes_cbc_decrypt, aes_cbc_encrypt
-from crypto import transform_key, pad, unpad
+from libkeepass.crypto import xor, sha256, aes_cbc_decrypt, aes_cbc_encrypt
+from libkeepass.crypto import transform_key, pad, unpad
 
-from common import load_keyfile, stream_unpack
+from libkeepass.common import load_keyfile, stream_unpack
 
-from common import KDBFile, HeaderDictionary
-from hbio import HashedBlockIO
+from libkeepass.common import KDBFile, HeaderDictionary
+from libkeepass.hbio import HashedBlockIO
 
 
-KDB4_SALSA20_IV = bytes('e830094b97205d2a'.decode('hex'))
+KDB4_SALSA20_IV = bytes(bytearray.fromhex('e830094b97205d2a'))
 KDB4_SIGNATURE = (0x9AA2D903, 0xB54BFB67)
 
 
@@ -119,29 +119,33 @@ class KDB4File(KDBFile):
                 self.header_length = stream.tell()
                 break
 
-    def _write_header(self, stream):
-        """Serialize the header fields from self.header into a byte stream, prefix
-        with file signature and version before writing header and out-buffer
-        to `stream`.
-        
-        Note, that `stream` is flushed, but not closed!"""
+    def _header(self):
         # serialize header to stream
         header = bytearray()
         # write file signature
         header.extend(struct.pack('<II', *KDB4_SIGNATURE))
         # and version
-        header.extend(struct.pack('<hh', 0, 3))
-        
-        field_ids = self.header.keys()
+        header.extend(struct.pack('<hh', 1, 3))
+
+        field_ids = list(self.header.keys())
         field_ids.sort()
-        field_ids.reverse() # field_id 0 must be last
+        field_ids.append(field_ids.pop(0)) # field_id 0 must be last
         for field_id in field_ids:
             value = self.header.b[field_id]
             length = len(value)
             header.extend(struct.pack('<b', field_id))
             header.extend(struct.pack('<h', length))
             header.extend(struct.pack('{}s'.format(length), value))
-        
+
+        return header
+
+    def _write_header(self, stream):
+        """Serialize the header fields from self.header into a byte stream, prefix
+        with file signature and version before writing header and out-buffer
+        to `stream`.
+
+        Note, that `stream` is flushed, but not closed!"""
+        header = self._header()
 
         # write header to stream
         stream.write(header)
@@ -245,7 +249,7 @@ class KDB4File(KDBFile):
         combination with the master seed.
         """
         super(KDB4File, self)._make_master_key()
-        composite = sha256(''.join(self.keys))
+        composite = sha256(b''.join(self.keys))
         tkey = transform_key(composite, 
             self.header.TransformSeed, 
             self.header.TransformRounds)
@@ -254,7 +258,7 @@ class KDB4File(KDBFile):
 
 from lxml import etree
 from lxml import objectify
-from crypto import Salsa20
+from salsa20 import Salsa20_xor
 
 class KDBXmlExtension:
     """
@@ -266,13 +270,12 @@ class KDBXmlExtension:
     in clear). You can override this with the `unprotect=False` argument.
     """
     def __init__(self, unprotect=True):
-        self._salsa_buffer = bytearray()
-        self.salsa = Salsa20(
-            sha256(self.header.ProtectedStreamKey), 
-            KDB4_SALSA20_IV)
+        self.iv = KDB4_SALSA20_IV
+        self.key = sha256(self.header.ProtectedStreamKey)
         
         self.in_buffer.seek(0)
         self.tree = objectify.parse(self.in_buffer)
+        objectify.deannotate(self.tree, pytype = True, cleanup_namespaces = True)
         self.obj_root = self.tree.getroot()
         
         if unprotect:
@@ -286,13 +289,37 @@ class KDBXmlExtension:
         to 'False'. The 'ProtectPassword' element in the 'Meta' section is also
         set to 'False'.
         """
-        self._reset_salsa()
         self.obj_root.Meta.MemoryProtection.ProtectPassword._setText('False')
+
+        offset = 0
+        bytes = []
+        offsets = []
+        for elem in self.obj_root.iterfind('.//Value[@Protected="True"]'):
+            if elem.text is not None:
+                decoded = base64.b64decode(elem.text)
+                bytes.append(decoded)
+                offset += len(decoded)
+                offsets.append(offset)
+
+        input = b''.join(bytes)
+        if len(input) == 0:
+            return
+
+        output = Salsa20_xor(input, self.iv, self.key)
+
+        length = len(output)
+        offset = 0
+        strings = []
+        for next_offset in offsets:
+            strings.append(output[offset:next_offset].decode('utf-8'))
+            offset = next_offset
+
+        string = iter(strings)
         for elem in self.obj_root.iterfind('.//Value[@Protected="True"]'):
             if elem.text is not None:
                 elem.set('ProtectedValue', elem.text)
                 elem.set('Protected', 'False')
-                elem._setText(self._unprotect(elem.text))
+                elem._setText(next(string))
 
     def protect(self):
         """
@@ -307,12 +334,35 @@ class KDBXmlExtension:
         this after modifying a password, adding a completely new entry or
         deleting entry history items.
         """
-        self._reset_salsa()
         self.obj_root.Meta.MemoryProtection.ProtectPassword._setText('True')
+
+        offset = 0
+        strings = []
+        offsets = []
+        for elem in self.obj_root.iterfind('.//Value[@Protected="False"]'):
+            encoded = elem.text.encode('utf-8')
+            strings.append(encoded)
+            offset += len(encoded)
+            offsets.append(offset)
+
+        input = b''.join(strings)
+        if len(input) == 0:
+            return
+
+        output = Salsa20_xor(input, self.iv, self.key)
+
+        length = len(output)
+        offset = 0
+        bytes = []
+        for next_offset in offsets:
+            bytes.append(base64.b64encode(output[offset:next_offset]))
+            offset = next_offset
+
+        byte = iter(bytes)
         for elem in self.obj_root.iterfind('.//Value[@Protected="False"]'):
             etree.strip_attributes(elem, 'ProtectedValue')
             elem.set('Protected', 'True')
-            elem._setText(self._protect(elem.text))
+            elem._setText(next(byte))
 
     def pretty_print(self):
         """Return a serialization of the element tree."""
@@ -324,39 +374,6 @@ class KDBXmlExtension:
         if self.out_buffer is None:
             self.protect()
             self.out_buffer = io.BytesIO(self.pretty_print())
-
-    def _reset_salsa(self):
-        """Clear the salsa buffer and reset algorithm counter to 0."""
-        self._salsa_buffer = bytearray()
-        self.salsa.setCounter(0)
-
-    def _get_salsa(self, length):
-        """
-        Returns the next section of the "random" Salsa20 bytes with the 
-        requested `length`.
-        """
-        while length > len(self._salsa_buffer):
-            new_salsa = self.salsa.encryptBytes(str(bytearray(64)))
-            self._salsa_buffer.extend(new_salsa)
-        nacho = self._salsa_buffer[:length]
-        del self._salsa_buffer[:length]
-        return nacho
-
-    def _unprotect(self, string):
-        """
-        Base64 decode and XOR the given `string` with the next salsa.
-        Returns an unprotected string.
-        """
-        tmp = base64.b64decode(string)
-        return str(xor(tmp, self._get_salsa(len(tmp))))
-
-    def _protect(self, string):
-        """
-        XORs the given `string` with the next salsa and base64 encodes it.
-        Returns a protected string.
-        """
-        tmp = str(xor(string, self._get_salsa(len(string))))
-        return base64.b64encode(tmp)
 
 class KDB4Reader(KDB4File, KDBXmlExtension):
     """
