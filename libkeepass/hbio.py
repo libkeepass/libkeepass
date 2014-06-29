@@ -101,7 +101,7 @@ class HashedBlockIO(io.BytesIO):
                 index += 1
             else:
                 stream.write(struct.pack('<I', index))
-                stream.write('\x00'*32)
+                stream.write(b'\x00'*32)
                 stream.write(struct.pack('<I', 0))
                 break
 

@@ -1,5 +1,9 @@
 # -*- coding: utf-8 -*-
 
+import sys
+
+IS_PYTHON_3 = sys.hexversion >= 0x3000000
+
 # file header
 
 class HeaderDictionary(dict):
@@ -110,7 +114,7 @@ class HeaderDictionary(dict):
 # file baseclass
 
 import io
-from crypto import sha256
+from libkeepass.crypto import sha256
 
 class KDBFile(object):
     def __init__(self, stream=None, **credentials):
@@ -132,12 +136,19 @@ class KDBFile(object):
         
         # the raw/basic file handle, expect it to be closed after __init__!
         if stream is not None:
-            if not isinstance(stream, io.IOBase):
+            if not self._is_file(stream):
                 raise TypeError('Stream does not have the buffer interface.')
             self.read_from(stream)
 
+    def _is_file(self, stream):
+        if isinstance(stream, io.IOBase):
+            return True
+        if not IS_PYTHON_3 and isinstance(stream, file):
+            return True
+        return False
+
     def read_from(self, stream):
-        if not (isinstance(stream, io.IOBase) or isinstance(stream, file)):
+        if not self._is_file(stream):
             raise TypeError('Stream does not have the buffer interface.')
         self._read_header(stream)
         self._decrypt(stream)
@@ -157,9 +168,9 @@ class KDBFile(object):
         raise NotImplementedError('The write_to() method was not implemented.')
 
     def add_credentials(self, **credentials):
-        if credentials.has_key('password'):
-            self.add_key_hash(sha256(credentials['password']))
-        if credentials.has_key('keyfile'):
+        if 'password' in  credentials:
+            self.add_key_hash(sha256(credentials['password'].encode('utf-8')))
+        if 'keyfile' in credentials:
             self.add_key_hash(load_keyfile(credentials['keyfile']))
 
     def clear_credentials(self):
