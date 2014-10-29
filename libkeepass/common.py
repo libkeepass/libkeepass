@@ -4,61 +4,61 @@
 
 class HeaderDictionary(dict):
     """
-    A dictionary on steroids for comfortable header field storage and 
+    A dictionary on steroids for comfortable header field storage and
     manipulation.
-    
+
     Header fields must be defined in the `fields` property before filling the
     dictionary with data. The `fields` property is a simple dictionary, where
     keys are field names (string) and values are field ids (int)::
-    
+
         >>> h.fields['rounds'] = 4
-    
+
     Now you can set and get values using the field id or the field name
     interchangeably::
-    
+
         >>> h[4] = 3000
         >>> print h['rounds']
         3000
         >>> h['rounds'] = 6000
         >>> print h[4]
         6000
-    
-    It is also possible to get and set data using the field name as an 
+
+    It is also possible to get and set data using the field name as an
     attribute::
-    
+
         >>> h.rounds = 9000
         >>> print h[4]
         9000
         >>> print h.rounds
         9000
-    
+
     For some fields it is more comfortable to unpack their byte value into
     a numeric or character value (eg. the transformation rounds). For those
     fields add a format string to the `fmt` dictionary. Use the field id as
     key::
-    
+
         >>> h.fmt[4] = '<q'
-    
+
     Continue setting the value as before if you have it as a number and if you
     need it as a number, get it like before. Only when you have the packed value
     use a different interface::
-    
+
         >>> h.b.rounds = '\x70\x17\x00\x00\x00\x00\x00\x00'
         >>> print h.b.rounds
         '\x70\x17\x00\x00\x00\x00\x00\x00'
         >>> print h.rounds
         6000
-    
-    The `b` (binary?) attribute is a special way to set and get data in its 
+
+    The `b` (binary?) attribute is a special way to set and get data in its
     packed format, while the usual attribute or dictionary access allows
     setting and getting a numeric value::
-    
+
         >>> h.rounds = 3000
         >>> print h.b.rounds
         '\xb8\x0b\x00\x00\x00\x00\x00\x00'
         >>> print h.rounds
         3000
-    
+
     """
     fields = {}
     fmt = {}
@@ -92,7 +92,7 @@ class HeaderDictionary(dict):
                 if fmt: self.d[key] = struct.unpack(fmt, val)[0]
                 else: self.d[key] = val
             __setattr__ = __setitem__
-        
+
         if key == 'b':
             return wrap(self)
         try:
@@ -117,10 +117,10 @@ class KDBFile(object):
         # list of hashed credentials (pre-transformation)
         self.keys = []
         self.add_credentials(**credentials)
-        
+
         # the buffer containing the decrypted/decompressed payload from a file
         self.in_buffer = None
-        # the buffer filled with data for writing back to a file before 
+        # the buffer filled with data for writing back to a file before
         # encryption/compression
         self.out_buffer = None
         # position in the `in_buffer` where the payload begins
@@ -129,11 +129,9 @@ class KDBFile(object):
         # encryption masterkey. if this is True `in_buffer` must contain
         # clear data.
         self.opened = False
-        
+
         # the raw/basic file handle, expect it to be closed after __init__!
         if stream is not None:
-            if not isinstance(stream, io.IOBase):
-                raise TypeError('Stream does not have the buffer interface.')
             self.read_from(stream)
 
     def read_from(self, stream):
@@ -187,9 +185,9 @@ class KDBFile(object):
         """
         Read the decrypted and uncompressed data after the file header.
         For example, in KDB4 this would be plain, utf-8 xml.
-        
-        Note that this is the source data for the lxml.objectify element tree 
-        at `self.obj_root`. Any changes made to the parsed element tree will 
+
+        Note that this is the source data for the lxml.objectify element tree
+        at `self.obj_root`. Any changes made to the parsed element tree will
         NOT be reflected in that data stream! Use `self.pretty_print` to get
         XML output from the element tree.
         """
@@ -258,7 +256,7 @@ def load_plain_keyfile(filename):
         return sha256(key)
     raise IOError('Could not read keyfile.')
 
-# 
+#
 
 import struct
 
@@ -275,6 +273,3 @@ def read_signature(stream):
     #ver_major = stream_unpack(stream, None, 2, 'h')
     #return (sig1, sig2, ver_major, ver_minor)
     return (sig1, sig2)
-
-
-
