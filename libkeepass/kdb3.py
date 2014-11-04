@@ -6,11 +6,11 @@ import struct
 import hashlib
 import base64
 
-from .crypto import xor, sha256, aes_cbc_decrypt
-from .crypto import transform_key, unpad
+from libkeepass.crypto import xor, sha256, aes_cbc_decrypt
+from libkeepass.crypto import transform_key, unpad
 
-from .common import load_keyfile, stream_unpack
-from .common import KDBFile, HeaderDictionary
+from libkeepass.common import load_keyfile, stream_unpack
+from libkeepass.common import KDBFile, HeaderDictionary
 
 
 KDB3_SIGNATURE = (0x9AA2D903, 0xB54BFB65)
