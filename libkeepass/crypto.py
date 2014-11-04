@@ -30,6 +30,7 @@ def aes_cbc_decrypt(data, key, enc_iv):
 
 
 def aes_cbc_encrypt(data, key, enc_iv):
+    """Encrypt and return `data` with AES CBC."""
     cipher = AES.new(key, AES.MODE_CBC, enc_iv)
     return cipher.encrypt(data)
 
