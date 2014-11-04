@@ -247,10 +247,13 @@ class Salsa20(object):
 # --------------------------------------------------------------------------
 
 def salsa20_wordtobyte(input_word, rounds=20, check_rounds=True):
-    """ Do nRounds Salsa20 rounds on a copy of 
-            input: list or tuple of 16 ints treated as little-endian unsigneds.
-        Returns a 64-byte string.
-        """
+    """
+    Do a number of Salsa20 rounds on a copy of the input
+    :param input_word: list or tuple of 16 ints treated as little-endian unsigneds
+    :param rounds: how many rounds to run
+    :param check_rounds:
+    :return: 64-byte bytearray
+    """
 
     assert type(input_word) in (list, tuple) and len(input_word) == 16
     assert not check_rounds or (rounds in [8, 12, 20])
