@@ -310,4 +310,4 @@ def read_signature(stream):
     # ver_minor = stream_unpack(stream, None, 2, 'h')
     #ver_major = stream_unpack(stream, None, 2, 'h')
     #return (sig1, sig2, ver_major, ver_minor)
-    return (sig1, sig2)
+    return sig1, sig2

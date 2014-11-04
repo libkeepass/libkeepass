@@ -253,8 +253,8 @@ def salsa20_wordtobyte(input, nRounds=20, checkRounds=True):
         Returns a 64-byte string.
         """
 
-    assert ( type(input) in ( list, tuple ) and len(input) == 16 )
-    assert ( not (checkRounds) or ( nRounds in [8, 12, 20] ) )
+    assert type(input) in (list, tuple) and len(input) == 16
+    assert not checkRounds or (nRounds in [8, 12, 20])
 
     x = list(input)
 
