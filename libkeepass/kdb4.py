@@ -296,8 +296,7 @@ class KDBXmlExtension:
             if elem.text is not None:
                 elem.set('ProtectedValue', elem.text)
                 elem.set('Protected', 'False')
-                unprotected_text = self._unprotect(elem.text)
-                elem._setText(unprotected_text)
+                elem._setText(self._unprotect(elem.text).decode('utf-8'))
 
     def protect(self):
         """
@@ -361,7 +360,7 @@ class KDBXmlExtension:
         XORs the given `string` with the next salsa and base64 encodes it.
         Returns a protected string.
         """
-        tmp = xor(string.encode(), self._get_salsa(len(string)))
+        tmp = str(xor(string, self._get_salsa(len(string))))
         return base64.b64encode(tmp).decode()
 
 
