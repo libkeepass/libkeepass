@@ -178,8 +178,7 @@ class TestCommon(unittest.TestCase):
 # created with KeePassX 0.4.3
 absfile2 = os.path.abspath('tests/sample7_kpx.kdb')
 # created with KeePass 2.19 on linux
-filename1 = 'sample1.kdbx'
-absfile1 = os.path.abspath('tests/' + filename1)
+absfile1 = os.path.abspath('tests/sample1.kdbx')
 absfile3 = os.path.abspath('tests/sample2.kdbx')
 keyfile3 = os.path.abspath('tests/sample2_keyfile.key')
 absfile4 = os.path.abspath('tests/sample3.kdbx')
