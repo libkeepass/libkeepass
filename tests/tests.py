@@ -230,7 +230,7 @@ class TestKDB4(unittest.TestCase):
     def test_open_file(self):
         # file not found, proper exception gets re-raised
         with self.assertRaisesRegexp(IOError, "No such file or directory"):
-            with libkeepass.open(filename1, password="asdf"):
+            with libkeepass.open(absfile1 + '.invalid', password="asdf"):
                 pass
         # invalid password
         with self.assertRaisesRegexp(IndexError, "No credentials found."):
@@ -300,7 +300,7 @@ class TestKDB4(unittest.TestCase):
 # self.assertIsNotNone(kdb)
 # self.assertIsInstance(kdb, libkeepass.kdb4.KDB4Reader)
 #
-#            # read raw data
+# # read raw data
 #            tmp1 = kdb.read()
 #            tmp2 = kdb.read()
 #            self.assertIsNotNone(tmp1)
