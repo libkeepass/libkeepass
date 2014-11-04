@@ -86,15 +86,23 @@ class HeaderDictionary(dict):
         class wrap(object):
             def __init__(self, d):
                 object.__setattr__(self, 'd', d)
+
             def __getitem__(self, key):
                 fmt = self.d.fmt.get(self.d.fields.get(key, key))
-                if fmt: return struct.pack(fmt, self.d[key])
-                else: return self.d[key]
+                if fmt:
+                    return struct.pack(fmt, self.d[key])
+                else:
+                    return self.d[key]
+
             __getattr__ = __getitem__
+
             def __setitem__(self, key, val):
                 fmt = self.d.fmt.get(self.d.fields.get(key, key))
-                if fmt: self.d[key] = struct.unpack(fmt, val)[0]
-                else: self.d[key] = val
+                if fmt:
+                    self.d[key] = struct.unpack(fmt, val)[0]
+                else:
+                    self.d[key] = val
+
             __setattr__ = __setitem__
 
         if key == 'b':
@@ -114,8 +122,8 @@ class HeaderDictionary(dict):
 # file baseclass
 
 import io
-from dateutil.parser import parse
 from libkeepass.crypto import sha256
+
 
 class KDBFile(object):
     def __init__(self, stream=None, **credentials):
@@ -154,7 +162,7 @@ class KDBFile(object):
 
     def _read_header(self, stream):
         raise NotImplementedError('The _read_header method was not '
-            'implemented propertly.')
+                                  'implemented propertly.')
 
     def _decrypt(self, stream):
         self._make_master_key()
@@ -167,7 +175,7 @@ class KDBFile(object):
         raise NotImplementedError('The write_to() method was not implemented.')
 
     def add_credentials(self, **credentials):
-        if 'password' in  credentials:
+        if 'password' in credentials:
             self.add_key_hash(sha256(credentials['password'].encode('utf-8')))
         if 'keyfile' in credentials:
             self.add_key_hash(load_keyfile(credentials['keyfile']))
@@ -216,9 +224,15 @@ class KDBFile(object):
 
     def merge(self, other):
         "Merges the other file into this one."
-        if parse(self.obj_root.Meta.DatabaseNameChanged) < parse(other.obj_root):
+        if self._parse(self.obj_root.Meta.DatabaseNameChanged) < self._parse(other.obj_root):
             self.obj_root.Meta.DatebaseName = other.obj_root.Meta.DatabaseName
             self.obj_root.Meta.DatebaseNameChanged = other.obj_root.Meta.DatabaseNameChanged
+
+    @staticmethod
+    def _parse(date_text):
+        from datetime import datetime
+
+        return datetime.strptime(date_text, '%Y-%m-%dT%H:%M:%SZ')
 
 
 # loading keyfiles
@@ -226,6 +240,7 @@ class KDBFile(object):
 import base64
 import hashlib
 from lxml import etree
+
 
 def load_keyfile(filename):
     try:
@@ -236,6 +251,7 @@ def load_keyfile(filename):
         return load_plain_keyfile(filename)
     except:
         pass
+
 
 def load_xml_keyfile(filename):
     """
@@ -256,6 +272,7 @@ def load_xml_keyfile(filename):
         # read text from key, data and convert from base64
         return base64.b64decode(tree.find('Key/Data').text)
     raise IOError('Could not parse XML keyfile.')
+
 
 def load_plain_keyfile(filename):
     """
@@ -278,16 +295,18 @@ def load_plain_keyfile(filename):
 
 import struct
 
+
 def stream_unpack(stream, offset, length, typecode='I'):
     if offset is not None:
         stream.seek(offset)
     data = stream.read(length)
-    return struct.unpack('<'+typecode, data)[0]
+    return struct.unpack('<' + typecode, data)[0]
+
 
 def read_signature(stream):
     sig1 = stream_unpack(stream, 0, 4)
     sig2 = stream_unpack(stream, None, 4)
-    #ver_minor = stream_unpack(stream, None, 2, 'h')
+    # ver_minor = stream_unpack(stream, None, 2, 'h')
     #ver_major = stream_unpack(stream, None, 2, 'h')
     #return (sig1, sig2, ver_major, ver_minor)
     return (sig1, sig2)
