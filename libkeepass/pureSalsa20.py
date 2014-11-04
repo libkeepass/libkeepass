@@ -188,7 +188,6 @@ class Salsa20(object):
 
         self.setRounds(rounds)
 
-
     def setKey(self, key):
         assert type(key) == bytes
         ctx = self.ctx
@@ -233,7 +232,7 @@ class Salsa20(object):
         lendata = len(data)
         munged = bytearray(lendata)  # ('b', b'\x00' * lendata)
         for i in range(0, lendata, 64):
-            h = salsa20_wordtobyte(self.ctx, self.rounds, checkRounds=False)
+            h = salsa20_wordtobyte(self.ctx, self.rounds, check_rounds=False)
             self.setCounter((self.getCounter() + 1) % 2 ** 64)
             # Stopping at 2^70 bytes per nonce is user's responsibility.
             for j in range(min(64, lendata - i)):
@@ -247,73 +246,67 @@ class Salsa20(object):
 
 # --------------------------------------------------------------------------
 
-def salsa20_wordtobyte(input, nRounds=20, checkRounds=True):
+def salsa20_wordtobyte(input_word, rounds=20, check_rounds=True):
     """ Do nRounds Salsa20 rounds on a copy of 
             input: list or tuple of 16 ints treated as little-endian unsigneds.
         Returns a 64-byte string.
         """
 
-    assert type(input) in (list, tuple) and len(input) == 16
-    assert not checkRounds or (nRounds in [8, 12, 20])
+    assert type(input_word) in (list, tuple) and len(input_word) == 16
+    assert not check_rounds or (rounds in [8, 12, 20])
 
-    x = list(input)
+    x = list(input_word)
 
-    def XOR(a, b):
-        return a ^ b
+    for i in range(rounds // 2):
+        # These are from ecrypt-linux.c
+        # changed for for indents and operators and the blank line between rounds:
+        x[4] ^= rot32(add32(x[0], x[12]), 7)
+        x[8] ^= rot32(add32(x[4], x[0]), 9)
+        x[12] ^= rot32(add32(x[8], x[4]), 13)
+        x[0] ^= rot32(add32(x[12], x[8]), 18)
+        x[9] ^= rot32(add32(x[5], x[1]), 7)
+        x[13] ^= rot32(add32(x[9], x[5]), 9)
+        x[1] ^= rot32(add32(x[13], x[9]), 13)
+        x[5] ^= rot32(add32(x[1], x[13]), 18)
+        x[14] ^= rot32(add32(x[10], x[6]), 7)
+        x[2] ^= rot32(add32(x[14], x[10]), 9)
+        x[6] ^= rot32(add32(x[2], x[14]), 13)
+        x[10] ^= rot32(add32(x[6], x[2]), 18)
+        x[3] ^= rot32(add32(x[15], x[11]), 7)
+        x[7] ^= rot32(add32(x[3], x[15]), 9)
+        x[11] ^= rot32(add32(x[7], x[3]), 13)
+        x[15] ^= rot32(add32(x[11], x[7]), 18)
 
-    ROTATE = rot32
-    PLUS = add32
+        x[1] ^= rot32(add32(x[0], x[3]), 7)
+        x[2] ^= rot32(add32(x[1], x[0]), 9)
+        x[3] ^= rot32(add32(x[2], x[1]), 13)
+        x[0] ^= rot32(add32(x[3], x[2]), 18)
+        x[6] ^= rot32(add32(x[5], x[4]), 7)
+        x[7] ^= rot32(add32(x[6], x[5]), 9)
+        x[4] ^= rot32(add32(x[7], x[6]), 13)
+        x[5] ^= rot32(add32(x[4], x[7]), 18)
+        x[11] ^= rot32(add32(x[10], x[9]), 7)
+        x[8] ^= rot32(add32(x[11], x[10]), 9)
+        x[9] ^= rot32(add32(x[8], x[11]), 13)
+        x[10] ^= rot32(add32(x[9], x[8]), 18)
+        x[12] ^= rot32(add32(x[15], x[14]), 7)
+        x[13] ^= rot32(add32(x[12], x[15]), 9)
+        x[14] ^= rot32(add32(x[13], x[12]), 13)
+        x[15] ^= rot32(add32(x[14], x[13]), 18)
 
-    for i in range(nRounds // 2):
-        # These ...XOR...ROTATE...PLUS... lines are from ecrypt-linux.c
-        # unchanged except for indents and the blank line between rounds:
-        x[4] = XOR(x[4], ROTATE(PLUS(x[0], x[12]), 7))
-        x[8] = XOR(x[8], ROTATE(PLUS(x[4], x[0]), 9))
-        x[12] = XOR(x[12], ROTATE(PLUS(x[8], x[4]), 13))
-        x[0] = XOR(x[0], ROTATE(PLUS(x[12], x[8]), 18))
-        x[9] = XOR(x[9], ROTATE(PLUS(x[5], x[1]), 7))
-        x[13] = XOR(x[13], ROTATE(PLUS(x[9], x[5]), 9))
-        x[1] = XOR(x[1], ROTATE(PLUS(x[13], x[9]), 13))
-        x[5] = XOR(x[5], ROTATE(PLUS(x[1], x[13]), 18))
-        x[14] = XOR(x[14], ROTATE(PLUS(x[10], x[6]), 7))
-        x[2] = XOR(x[2], ROTATE(PLUS(x[14], x[10]), 9))
-        x[6] = XOR(x[6], ROTATE(PLUS(x[2], x[14]), 13))
-        x[10] = XOR(x[10], ROTATE(PLUS(x[6], x[2]), 18))
-        x[3] = XOR(x[3], ROTATE(PLUS(x[15], x[11]), 7))
-        x[7] = XOR(x[7], ROTATE(PLUS(x[3], x[15]), 9))
-        x[11] = XOR(x[11], ROTATE(PLUS(x[7], x[3]), 13))
-        x[15] = XOR(x[15], ROTATE(PLUS(x[11], x[7]), 18))
-
-        x[1] = XOR(x[1], ROTATE(PLUS(x[0], x[3]), 7))
-        x[2] = XOR(x[2], ROTATE(PLUS(x[1], x[0]), 9))
-        x[3] = XOR(x[3], ROTATE(PLUS(x[2], x[1]), 13))
-        x[0] = XOR(x[0], ROTATE(PLUS(x[3], x[2]), 18))
-        x[6] = XOR(x[6], ROTATE(PLUS(x[5], x[4]), 7))
-        x[7] = XOR(x[7], ROTATE(PLUS(x[6], x[5]), 9))
-        x[4] = XOR(x[4], ROTATE(PLUS(x[7], x[6]), 13))
-        x[5] = XOR(x[5], ROTATE(PLUS(x[4], x[7]), 18))
-        x[11] = XOR(x[11], ROTATE(PLUS(x[10], x[9]), 7))
-        x[8] = XOR(x[8], ROTATE(PLUS(x[11], x[10]), 9))
-        x[9] = XOR(x[9], ROTATE(PLUS(x[8], x[11]), 13))
-        x[10] = XOR(x[10], ROTATE(PLUS(x[9], x[8]), 18))
-        x[12] = XOR(x[12], ROTATE(PLUS(x[15], x[14]), 7))
-        x[13] = XOR(x[13], ROTATE(PLUS(x[12], x[15]), 9))
-        x[14] = XOR(x[14], ROTATE(PLUS(x[13], x[12]), 13))
-        x[15] = XOR(x[15], ROTATE(PLUS(x[14], x[13]), 18))
-
-    for i in range(len(input)):
-        x[i] = PLUS(x[i], input[i])
+    for i in range(len(input_word)):
+        x[i] = add32(x[i], input_word[i])
     return little16_i32.pack(*x)
 
 
 # --------------------------- 32-bit ops -------------------------------
 
-def trunc32(w):
+def trunc32(word):
     """ Return the bottom 32 bits of w as a Python int.
         This creates longs temporarily, but returns an int. """
-    w = int(( w & 0x7fffFFFF ) | -( w & 0x80000000 ))
-    assert type(w) == int
-    return w
+    word = int((word & 0x7fffFFFF) | -(word & 0x80000000))
+    assert type(word) == int
+    return word
 
 
 def add32(a, b):
@@ -321,26 +314,26 @@ def add32(a, b):
         and without creating a Python long.
         Timing shouldn't vary.
     """
-    lo = ( a & 0xFFFF ) + ( b & 0xFFFF )
-    hi = ( a >> 16 ) + ( b >> 16 ) + ( lo >> 16 )
-    return ( -(hi & 0x8000) | ( hi & 0x7FFF ) ) << 16 | ( lo & 0xFFFF )
+    lo = (a & 0xFFFF) + (b & 0xFFFF)
+    hi = (a >> 16) + (b >> 16) + (lo >> 16)
+    return (-(hi & 0x8000) | (hi & 0x7FFF)) << 16 | (lo & 0xFFFF)
 
 
-def rot32(w, nLeft):
+def rot32(word, left_rotations):
     """ Rotate 32-bit word left by nLeft or right by -nLeft
         without creating a Python long.
         Timing depends on nLeft but not on w.
     """
-    nLeft &= 31  # which makes nLeft >= 0
-    if nLeft == 0:
-        return w
+    left_rotations &= 31  # which makes nLeft >= 0
+    if left_rotations == 0:
+        return word
 
     # Note: now 1 <= nLeft <= 31.
     # RRRsLLLLLL   There are nLeft RRR's, (31-nLeft) LLLLLL's,
     # =>  sLLLLLLRRR   and one s which becomes the sign bit.
-    RRR = ( ( ( w >> 1 ) & 0x7fffFFFF ) >> ( 31 - nLeft ) )
-    sLLLLLL = -( (1 << (31 - nLeft)) & w ) | (0x7fffFFFF >> nLeft) & w
-    return RRR | ( sLLLLLL << nLeft )
+    right_part = (((word >> 1) & 0x7fffFFFF) >> (31 - left_rotations))
+    signed_left_part = -((1 << (31 - left_rotations)) & word) | (0x7fffFFFF >> left_rotations) & word
+    return right_part | (signed_left_part << left_rotations)
 
 
 # --------------------------------- end -----------------------------------
