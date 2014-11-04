@@ -10,6 +10,6 @@ setup(
     license="GPL",
     keywords="keepass library",
     url="https://github.com/phpwutz/libkeepass",  # project home page, if any
-    install_requires=["lxml==3.2.1", "nose==1.3.0", "pycrypto==2.6.1", "salsa20==0.3.0"],
+    install_requires=["lxml>=3.2.1", "nose>=1.3.0", "pycrypto>=2.6.1"],
     test_suite="tests"
 )
