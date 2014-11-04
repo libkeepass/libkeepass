@@ -48,18 +48,12 @@ class TextCrypto(unittest.TestCase):
         self.assertEquals(xor(b'banana', b'ananas'), b'\x03\x0f\x0f\x0f\x0f\x12')
 
     def test_pad(self):
-        self.assertEquals(pad(b''),
-                          b'\x10\x10\x10\x10\x10\x10\x10\x10\x10\x10\x10\x10\x10\x10\x10\x10')
-        self.assertEquals(pad(b'\xff'),
-                          b'\xff\x0f\x0f\x0f\x0f\x0f\x0f\x0f\x0f\x0f\x0f\x0f\x0f\x0f\x0f\x0f')
-        self.assertEquals(pad(b'\xff\xff'),
-                          b'\xff\xff\x0e\x0e\x0e\x0e\x0e\x0e\x0e\x0e\x0e\x0e\x0e\x0e\x0e\x0e')
-        self.assertEquals(pad(b'\xff\xff\xff'),
-                          b'\xff\xff\xff\x0d\x0d\x0d\x0d\x0d\x0d\x0d\x0d\x0d\x0d\x0d\x0d\x0d')
-        self.assertEquals(pad(b'\xff\xff\xff\xff'),
-                          b'\xff\xff\xff\xff\x0c\x0c\x0c\x0c\x0c\x0c\x0c\x0c\x0c\x0c\x0c\x0c')
-        self.assertEquals(pad(b'\xff\xff\xff\xff\xff'),
-                          b'\xff\xff\xff\xff\xff\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b')
+        self.assertEquals(pad(b''), b'\x10' * 16)
+        self.assertEquals(pad(b'\xff'), b'\xff' + b'\x0f' * 15)
+        self.assertEquals(pad(b'\xff' * 2), b'\xff' * 2 + b'\x0e' * 14)
+        self.assertEquals(pad(b'\xff' * 3), b'\xff' * 3 + b'\x0d' * 13)
+        self.assertEquals(pad(b'\xff' * 4), b'\xff' * 4 + b'\x0c' * 12)
+        self.assertEquals(pad(b'\xff' * 5), b'\xff' * 5 + b'\x0b' * 11)
         self.assertEquals(len(pad(b'\xff')), AES_BLOCK_SIZE)
         self.assertEquals(len(pad(b'\xff' * 0)), AES_BLOCK_SIZE)
         self.assertEquals(len(pad(b'\xff' * 1)), AES_BLOCK_SIZE)
@@ -73,12 +67,10 @@ class TestModule(unittest.TestCase):
     def test_get_kdb_class(self):
         # v3
         self.assertIsNotNone(libkeepass.get_kdb_reader([0x9AA2D903, 0xB54BFB65]))
-        self.assertEquals(libkeepass.get_kdb_reader([0x9AA2D903, 0xB54BFB65]),
-                          libkeepass.kdb3.KDB3Reader)
+        self.assertEquals(libkeepass.get_kdb_reader([0x9AA2D903, 0xB54BFB65]), libkeepass.kdb3.KDB3Reader)
         # v4
         self.assertIsNotNone(libkeepass.get_kdb_reader([0x9AA2D903, 0xB54BFB67]))
-        self.assertEquals(libkeepass.get_kdb_reader([0x9AA2D903, 0xB54BFB67]),
-                          libkeepass.kdb4.KDB4Reader)
+        self.assertEquals(libkeepass.get_kdb_reader([0x9AA2D903, 0xB54BFB67]), libkeepass.kdb4.KDB4Reader)
 
         # mythical pre2.x signature
         with self.assertRaisesRegexp(IOError, "Unknown sub signature."):
@@ -305,9 +297,9 @@ class TestKDB4(unittest.TestCase):
             self.assertIsNotNone(kdb.pretty_print())
 
 # # valid password and plain keyfile, uncompressed kdb
-#        with libkeepass.open(absfile5, password="qwer", keyfile=keyfile5) as kdb:
-#            self.assertIsNotNone(kdb)
-#            self.assertIsInstance(kdb, libkeepass.kdb4.KDB4Reader)
+# with libkeepass.open(absfile5, password="qwer", keyfile=keyfile5) as kdb:
+# self.assertIsNotNone(kdb)
+# self.assertIsInstance(kdb, libkeepass.kdb4.KDB4Reader)
 #
 #            # read raw data
 #            tmp1 = kdb.read()
