@@ -33,20 +33,21 @@ class KDB3Header(HeaderDictionary):
         'MasterSeed2': 7,
         # number of transformation rounds
         'KeyEncRounds': 8,
-        }
+    }
 
-    fmt = { 0: '<I', 4: '<I', 5: '<I', 8: '<I' }
+    fmt = {0: '<I', 4: '<I', 5: '<I', 8: '<I'}
 
     lengths = [4, 4, 16, 16, 4, 4, 32, 32, 4]
 
-    #TODO how is that field encoded!? it's supposed to be a bitmap, but i get 3.
+    # TODO how is that field encoded!? it's supposed to be a bitmap, but i get 3.
     encryption_flags = {
         1: 'SHA2',
         #2: 'Rijndael',
         2: 'AES',
         4: 'ArcFour',
         8: 'TwoFish',
-        }
+    }
+
 
 class KDB3File(KDBFile):
     def __init__(self, stream=None, **credentials):
@@ -62,28 +63,28 @@ class KDB3File(KDBFile):
         self.header_length = 124
         # skip file signature
         stream.seek(8)
-        
+
         field_id = 0
         while True:
             length = self.header.lengths[field_id]
             data = stream_unpack(stream, None, length, '{}s'.format(length))
             self.header.b[field_id] = data
-            
+
             field_id += 1
             if field_id > 8:
                 break
-        
+
         # this is impossible, as long as noone messes with self.header.lengths
         if self.header_length != stream.tell():
             raise IOError('Unexpected header length! What did you do!?')
 
     def _decrypt(self, stream):
         super(KDB3File, self)._decrypt(stream)
-        
-        data = aes_cbc_decrypt(stream.read(), self.master_key, 
-            self.header.EncryptionIV)
+
+        data = aes_cbc_decrypt(stream.read(), self.master_key,
+                               self.header.EncryptionIV)
         data = unpad(data)
-        
+
         if self.header.ContentHash == sha256(data):
             # put data in bytes io
             self.in_buffer = io.BytesIO(data)
@@ -100,14 +101,14 @@ class KDB3File(KDBFile):
         combination with the master seed.
         """
         super(KDB3File, self)._make_master_key()
-        #print "masterkey:", ''.join(self.keys).encode('hex')
+        # print "masterkey:", ''.join(self.keys).encode('hex')
         #composite = sha256(''.join(self.keys))
         #TODO python-keepass does not support keyfiles, there seems to be a
         # different way to hash those keys in kdb3
         composite = self.keys[0]
-        tkey = transform_key(composite, 
-            self.header.MasterSeed2, 
-            self.header.KeyEncRounds)
+        tkey = transform_key(composite,
+                             self.header.MasterSeed2,
+                             self.header.KeyEncRounds)
         self.master_key = sha256(self.header.MasterSeed + tkey)
 
 
@@ -115,8 +116,10 @@ class KDBExtension:
     """
     The KDB3 payload is a ... #TODO ...
     """
+
     def __init__(self):
         pass
+
 
 class KDB3Reader(KDB3File, KDBExtension):
     def __init__(self, stream=None, **credentials):

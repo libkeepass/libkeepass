@@ -94,7 +94,7 @@ class KDB4File(KDBFile):
         # 2.15 has 3.00.
         # The first 2 bytes are critical (i.e. loading will fail, if the
         # file version is too high), the last 2 bytes are informational.
-        #TODO implement version check
+        # TODO implement version check
 
         # the first header field starts at byte 12 after the signature
         stream.seek(12)
