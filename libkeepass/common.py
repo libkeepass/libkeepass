@@ -6,6 +6,7 @@ IS_PYTHON_3 = sys.hexversion >= 0x3000000
 
 # file header
 
+
 class HeaderDictionary(dict):
     """
     A dictionary on steroids for comfortable header field storage and
@@ -223,7 +224,7 @@ class KDBFile(object):
             return self.in_buffer.tell()
 
     def merge(self, other):
-        "Merges the other file into this one."
+        """Merges the other file into this one."""
         if self._parse(self.obj_root.Meta.DatabaseNameChanged) < self._parse(other.obj_root):
             self.obj_root.Meta.DatebaseName = other.obj_root.Meta.DatabaseName
             self.obj_root.Meta.DatebaseNameChanged = other.obj_root.Meta.DatabaseNameChanged
