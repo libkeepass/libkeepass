@@ -30,15 +30,15 @@ class HashedBlockIO(io.BytesIO):
     HashedBlockReader is a subclass of io.BytesIO. The inherited read, seek, ...
     functions shall be used to access the verified data.
     """
-    def __init__(self, block_stream=None, bytes=None):
+    def __init__(self, block_stream=None, initial_bytes=None):
         io.BytesIO.__init__(self)
         input_stream = None
         if block_stream is not None:
             if not (isinstance(block_stream, io.IOBase) or isinstance(block_stream, file)):
                 raise TypeError('Stream does not have the buffer interface.')
             input_stream = block_stream
-        elif bytes is not None:
-            input_stream = io.BytesIO(bytes)
+        elif initial_bytes is not None:
+            input_stream = io.BytesIO(initial_bytes)
         if input_stream is not None:
             self.read_block_stream(input_stream)
 
