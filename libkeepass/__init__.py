@@ -2,7 +2,10 @@
 import io
 from contextlib import contextmanager
 
-import libkeepass.common, libkeepass.kdb3, libkeepass.kdb4
+import libkeepass.common
+import libkeepass.kdb3
+import libkeepass.kdb4
+
 
 BASE_SIGNATURE = 0x9AA2D903
 
@@ -11,7 +14,6 @@ _kdb_readers = {
     # 0xB54BFB66: KDB4Reader, # pre2.x may work, untested
     kdb4.KDB4_SIGNATURE[1]: kdb4.KDB4Reader,
 }
-
 
 @contextmanager
 def open(filename, **credentials):
@@ -33,7 +35,8 @@ def open(filename, **credentials):
             yield kdb
             kdb.close()
     except:
-        if kdb: kdb.close()
+        if kdb:
+            kdb.close()
         raise
 
 
