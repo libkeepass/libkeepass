@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+import re
 
 import libkeepass
 import getpass
 import lxml.etree
 import readline
 import os
+import sys
 
 import cmd
 
@@ -15,6 +17,10 @@ class KeePassShell(cmd.Cmd):
     prompt = 'keepass>'
     root = None
     tree = None
+    current_group = None
+    _globals = {}
+    _locals = {}  # Initialize execution namespace for user
+    _hist = []  # No history yet
 
     def do_open(self, arg):
         """Open a file"""
@@ -24,6 +30,7 @@ class KeePassShell(cmd.Cmd):
                 kdbx_data = kdb.pretty_print()
                 self.root = lxml.etree.fromstring(kdbx_data)
                 self.tree = lxml.etree.ElementTree(self.root)
+                self.current_group = self.tree.xpath("/KeePassFile/Root/Group")[0]
         except OSError as ex:
             print(ex)
 
@@ -58,10 +65,210 @@ class KeePassShell(cmd.Cmd):
             url = e.find('.//String[Key="URL"]/Value').text
             print('{}:\t{} {} ({})'.format(title, username, password, url))
 
+    # def do_attach(self, arg):
+    #     """Manage attachments: attach <path to entry|entry number>"""
+    #     pass
+
+    def complete_cd(self, text, line, begidx, endidx):
+        return [g for g in self._groups() if g.lower().startswith(text.lower())]
+
+    def do_cd(self, arg):
+        """Change directory (path to a group)"""
+        if arg == '..':
+            # go up
+            parent = self.current_group.getparent()
+            if parent.tag == 'Group':
+                self.current_group = parent
+            else:
+                print("Already at top folder")
+        else:
+            groups = self._groups()
+            if arg in groups:
+                self.current_group = [e for e in self.current_group.findall('Group') if e.find('Name').text == arg][0]
+            elif re.match('\d+', arg) and int(arg) < len(groups):
+                self.current_group = self.current_group.findall('Group')[int(arg)]
+            else:
+                print("Group not found:", arg)
+
+    # def do_cl(self, arg):
+    #     """Change directory and list entries (cd+ls)"""
+    #     pass
+    #
+    # def do_clone(self, arg):
+    #     """Clone an entry: clone <path to entry> <path to new entry>"""
+    #     pass
+    #
+    # def do_close(self, arg):
+    #     """Close the currently opened database"""
+    #     pass
+    #
+    # def do_cls(self, arg):
+    #     """Clear screen ("clear" command also works)"""
+    #     pass
+    #
+    # def do_copy(self, arg):
+    #     """Copy an entry: copy <path to entry> <path to new entry>"""
+    #     pass
+    #
+    # def do_edit(self, arg):
+    #     """Edit an entry: edit <path to entry|entry number>"""
+    #     pass
+    #
+    # def do_export(self, arg):
+    #     """Export entries to a new KeePass DB (export <file.kdb> [<file.key>])"""
+    #     pass
+    #
+    # def do_find(self, arg):
+    #     """Finds entries by Title"""
+    #     pass
+
+    def do_history(self, arg):
+        """Prints the command history"""
+        for idx, hist_line in enumerate(self._hist):
+            print("{}:\t{}".format(idx, hist_line))
+
+    # def do_icons(self, arg):
+    #     """Change group or entry icons in the database"""
+    #     pass
+    #
+    # def do_import(self, arg):
+    #     """Import another KeePass DB (import <file.kdb> <path> [<file.key>])"""
+    #     pass
+
+    def do_dir(self, arg):
+        return self.do_ls(arg)
+
+    def _groups(self):
+        group_list = [e.find('Name').text for e in self.current_group.findall('Group')]
+        group_list.sort()
+        return group_list
+
+    def _entries(self):
+        entries_list = [e.find("String[Key='Title']/Value").text for e in self.current_group.findall('Entry')]
+        entries_list.sort()
+        return entries_list
+
+    def do_ls(self, arg):
+        """Lists items in the pwd or a specified path ("dir" also works)"""
+        for idx, name in enumerate(self._groups()):
+            print('[ ] {:2}: {}'.format(idx, name))
+        for idx, name in enumerate(self._entries()):
+            print('    {:2}: {}'.format(idx, name))
+
+
+    # def do_mkdir(self, arg):
+    #     """Create a new group (mkdir <group_name>)"""
+    #     pass
+    #
+    # def do_mv(self, arg):
+    #     """Move an item: mv <path to group|entry> <path to group>"""
+    #     pass
+    #
+    # def do_new(self, arg):
+    #     """Create a new entry: new <optional path&|title>"""
+    #     pass
+    #
+    # def do_pwck(self, arg):
+    #     """Check password quality: pwck <entry|group>"""
+    #     pass
+    #
+    # def do_pwd(self, arg):
+    #     """Print the current working directory"""
+    #     pass
+    #
+    # def do_quit(self, arg):
+    #     """Quit this program (EOF and exit also work)"""
+    #     pass
+    #
+    # def do_rename(self, arg):
+    #     """Rename a group: rename <path to group>"""
+    #     pass
+    #
+    # def do_rm(self, arg):
+    #     """Remove an entry: rm <path to entry|entry number>"""
+    #     pass
+    #
+    # def do_rmdir(self, arg):
+    #     """Delete a group (rmdir <group_name>)"""
+    #     pass
+    #
+    # def do_save(self, arg):
+    #     """Save the database to disk"""
+    #     pass
+    #
+    # def do_saveas(self, arg):
+    #     """Save to a specific filename (saveas <file.kdb> [<file.key>])"""
+    #     pass
+
+    def do_show(self, arg):
+        """Show an entry: show [-f] [-a] <entry path|entry number>"""
+        entries = self._entries()
+        if arg in entries:
+            entry = [e for e in self.current_group.findall('Entry') if e.find('Name').text == arg][0]
+        elif re.match('\d+', arg) and int(arg) < len(entries):
+            entry = self.current_group.findall('Entry')[int(arg)]
+        else:
+            print("Entry not found:", arg)
+        values = {e2.find('Key').text: e2.find('Value').text for e2 in entry.findall("String")}
+        value_list = ['{} = {}'.format(k, v) for k, v in values.items()]
+        value_list.sort()
+        print('\n'.join(value_list))
+
+
+    # def do_stats(self, arg):
+    #     """Prints statistics about the open KeePass file"""
+    #     pass
+    #
+    # def do_ver(self, arg):
+    #     """Print the version of this program"""
+    #     pass
+    #
+    # def do_vers(self, arg):
+    #     """Same as "ver -v" """
+    #     pass
+    #
+    # def do_xp(self, arg):
+    #     """Copy password to clipboard: xp <entry path|number>"""
+    #     pass
+    #
+    # def do_xu(self, arg):
+    #     """Copy username to clipboard: xu <entry path|number>"""
+    #     pass
+    #
+    # def do_xw(self, arg):
+    #     """Copy URL (www) to clipboard: xw <entry path|number>"""
+    #     pass
+    #
+    # def do_xx(self, arg):
+    #     """Clear the clipboard: xx"""
+    #     pass
+
+    def do_EOF(self, args):
+        """Exit on system end of file character"""
+        return self.do_exit(args)
+
+    def do_exit(self, args):
+        return self.do_bye(args)
+
     def do_bye(self, arg):
         """Exit the Keepass Shell"""
         return True
 
+    def precmd(self, line):
+        """ This method is called after the line has been input but before
+            it has been interpreted. If you want to modifdy the input line
+            before execution (for example, variable substitution) do it here.
+        """
+        self._hist += [line.strip()]
+        return line
+
+
+def main():
+    shell = KeePassShell()
+    if len(sys.argv) == 2:
+        shell.do_open(sys.argv[1])
+    shell.cmdloop()
+
 
 if __name__ == '__main__':
-    KeePassShell().cmdloop()
+    main()
