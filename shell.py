@@ -101,9 +101,9 @@ class KeePassShell(cmd.Cmd):
         else:
             groups = self._groups()
             if arg in groups:
-                new_group = [e for e in self.current_group.findall('Group') if e.find('Name').text == arg][0]
+                new_group = self.current_group.find("Group[Name='{}']".format(arg))
             elif re.match('\d+', arg) and int(arg) < len(groups):
-                new_group = self.current_group.findall('Group')[int(arg)]
+                new_group = self.current_group.find("Group[Name='{}']".format(groups[int(arg)]))
             else:
                 print("Group not found:", arg)
                 return
@@ -123,8 +123,8 @@ class KeePassShell(cmd.Cmd):
     # pass
     #
     # def do_cls(self, arg):
-    #     """Clear screen ("clear" command also works)"""
-    #     pass
+    # """Clear screen ("clear" command also works)"""
+    # pass
     #
     # def do_copy(self, arg):
     #     """Copy an entry: copy <path to entry> <path to new entry>"""
@@ -176,7 +176,7 @@ class KeePassShell(cmd.Cmd):
             return value.text
 
     def _title(self, entry):
-        for path_choice in ["String[Key='Title']/Value", "UUID"]:
+        for path_choice in ["String[Key='Title']/Value", "String[Key='URL']/Value", "UUID"]:
             value = self._safevalue(entry, path_choice)
             if value is not None:
                 if path_choice == "UUID":
@@ -247,9 +247,9 @@ class KeePassShell(cmd.Cmd):
         """Show an entry: show [-f] [-a] <entry path|entry number>"""
         entries = self._entries()
         if arg in entries:
-            entry = [e for e in self.current_group.findall('Entry') if e.find('Name').text == arg][0]
+            entry = [e for e in self.current_group.findall('Entry') if self._title(e) == arg][0]
         elif re.match('\d+', arg) and int(arg) < len(entries):
-            entry = self.current_group.findall('Entry')[int(arg)]
+            entry = [e for e in self.current_group.findall('Entry') if self._title(e) == entries[int(arg)]][0]
         else:
             print("Entry not found:", arg)
         values = {e2.find('Key').text: e2.find('Value').text for e2 in entry.findall("String")}
