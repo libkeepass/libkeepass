@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+import base64
 import re
+import binascii
 
 import libkeepass
 import getpass
@@ -15,9 +17,11 @@ import cmd
 class KeePassShell(cmd.Cmd):
     intro = 'Welcome to KeePassShell. Type "open" to open a file'
     prompt = 'keepass>'
+    filename = ''
     root = None
     tree = None
     current_group = None
+    current_path = ''
     _globals = {}
     _locals = {}  # Initialize execution namespace for user
     _hist = []  # No history yet
@@ -31,8 +35,20 @@ class KeePassShell(cmd.Cmd):
                 self.root = lxml.etree.fromstring(kdbx_data)
                 self.tree = lxml.etree.ElementTree(self.root)
                 self.current_group = self.tree.xpath("/KeePassFile/Root/Group")[0]
+                self.current_path = '/' + self.current_group.find('Name').text
+                self.filename = arg
+                self.prompt = self._prompt()
         except OSError as ex:
             print(ex)
+
+    def _prompt(self):
+        prompt = 'keepass'
+        if self.filename != '':
+            prompt += ':({})'.format(self.filename)
+        if self.current_path != '':
+            prompt += self.current_path
+        prompt += '>'
+        return prompt
 
 
     def do_search(self, arg):
@@ -66,8 +82,8 @@ class KeePassShell(cmd.Cmd):
             print('{}:\t{} {} ({})'.format(title, username, password, url))
 
     # def do_attach(self, arg):
-    #     """Manage attachments: attach <path to entry|entry number>"""
-    #     pass
+    # """Manage attachments: attach <path to entry|entry number>"""
+    # pass
 
     def complete_cd(self, text, line, begidx, endidx):
         return [g for g in self._groups() if g.lower().startswith(text.lower())]
@@ -79,28 +95,32 @@ class KeePassShell(cmd.Cmd):
             parent = self.current_group.getparent()
             if parent.tag == 'Group':
                 self.current_group = parent
+                self.current_path = '/'.join(self.current_path.split('/')[0:-1])
             else:
                 print("Already at top folder")
         else:
             groups = self._groups()
             if arg in groups:
-                self.current_group = [e for e in self.current_group.findall('Group') if e.find('Name').text == arg][0]
+                new_group = [e for e in self.current_group.findall('Group') if e.find('Name').text == arg][0]
             elif re.match('\d+', arg) and int(arg) < len(groups):
-                self.current_group = self.current_group.findall('Group')[int(arg)]
+                new_group = self.current_group.findall('Group')[int(arg)]
             else:
                 print("Group not found:", arg)
+                return
+            self.current_path += '/' + new_group.find('Name').text
+            self.current_group = new_group
 
     # def do_cl(self, arg):
-    #     """Change directory and list entries (cd+ls)"""
-    #     pass
+    # """Change directory and list entries (cd+ls)"""
+    # pass
     #
     # def do_clone(self, arg):
-    #     """Clone an entry: clone <path to entry> <path to new entry>"""
-    #     pass
+    # """Clone an entry: clone <path to entry> <path to new entry>"""
+    # pass
     #
     # def do_close(self, arg):
-    #     """Close the currently opened database"""
-    #     pass
+    # """Close the currently opened database"""
+    # pass
     #
     # def do_cls(self, arg):
     #     """Clear screen ("clear" command also works)"""
@@ -143,17 +163,40 @@ class KeePassShell(cmd.Cmd):
         group_list.sort()
         return group_list
 
+    @staticmethod
+    def _safevalue(entry, path):
+        value = entry.find(path)
+        if value is None:
+            return None
+        elif value.text is None:
+            return None
+        elif value.text == '':
+            return None
+        else:
+            return value.text
+
+    def _title(self, entry):
+        for path_choice in ["String[Key='Title']/Value", "UUID"]:
+            value = self._safevalue(entry, path_choice)
+            if value is not None:
+                if path_choice == "UUID":
+                    return "<UUID:{}>".format(binascii.hexlify(base64.b64decode('W0MMbmy5KEqBppYiWyfdMw==')).decode())
+                else:
+                    return value
+        else:
+            return ''
+
     def _entries(self):
-        entries_list = [e.find("String[Key='Title']/Value").text for e in self.current_group.findall('Entry')]
+        entries_list = [self._title(e) for e in self.current_group.findall('Entry')]
         entries_list.sort()
         return entries_list
 
     def do_ls(self, arg):
         """Lists items in the pwd or a specified path ("dir" also works)"""
         for idx, name in enumerate(self._groups()):
-            print('[ ] {:2}: {}'.format(idx, name))
+            print('[ ] {:3}: {}'.format(idx, name))
         for idx, name in enumerate(self._entries()):
-            print('    {:2}: {}'.format(idx, name))
+            print('    {:3}: {}'.format(idx, name))
 
 
     # def do_mkdir(self, arg):
@@ -261,6 +304,17 @@ class KeePassShell(cmd.Cmd):
         """
         self._hist += [line.strip()]
         return line
+
+    def postcmd(self, stop, line):
+        """If you want to stop the console, return something that evaluates to true.
+           If you want to do some post command processing, do it here.
+        """
+        self.prompt = self._prompt()
+        return stop
+
+    def emptyline(self):
+        """Do nothing on empty input line"""
+        pass
 
 
 def main():
