@@ -1,8 +1,11 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+import argparse
 import base64
+import fnmatch
 import re
 import binascii
+import shlex
 
 import libkeepass
 import getpass
@@ -127,11 +130,11 @@ class KeePassShell(cmd.Cmd):
     # pass
     #
     # def do_copy(self, arg):
-    #     """Copy an entry: copy <path to entry> <path to new entry>"""
-    #     pass
+    # """Copy an entry: copy <path to entry> <path to new entry>"""
+    # pass
     #
     # def do_edit(self, arg):
-    #     """Edit an entry: edit <path to entry|entry number>"""
+    # """Edit an entry: edit <path to entry|entry number>"""
     #     pass
     #
     # def do_export(self, arg):
@@ -191,12 +194,33 @@ class KeePassShell(cmd.Cmd):
         entries_list.sort()
         return entries_list
 
+    def _should_show(self, name, wildcards):
+        show_me = True
+        if len(wildcards) > 0:
+            show_me = False
+            for w in wildcards:
+                if fnmatch.fnmatch(name, w):
+                    show_me = True
+                    break
+        return show_me
+
     def do_ls(self, arg):
         """Lists items in the pwd or a specified path ("dir" also works)"""
-        for idx, name in enumerate(self._groups()):
-            print('[ ] {:3}: {}'.format(idx, name))
-        for idx, name in enumerate(self._entries()):
-            print('    {:3}: {}'.format(idx, name))
+        parser = argparse.ArgumentParser(prog='ls')
+        parser.add_argument('-e', '--entries', action="store_true")
+        parser.add_argument('-g', '--groups', action="store_true")
+        parser.add_argument('wildcards', nargs='*')
+        args = parser.parse_args(shlex.split(arg))
+        print(args)
+        wildcards = args.wildcards
+        if not args.entries:
+            for idx, name in enumerate(self._groups()):
+                if self._should_show(name, wildcards):
+                    print('[ ] {:3}: {}'.format(idx, name))
+        if not args.groups:
+            for idx, name in enumerate(self._entries()):
+                if self._should_show(name, wildcards):
+                    print('    {:3}: {}'.format(idx, name))
 
 
     # def do_mkdir(self, arg):
