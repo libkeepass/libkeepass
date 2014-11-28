@@ -180,7 +180,7 @@ class KeePassShell(cmd.Cmd):
             value = self._safevalue(entry, path_choice)
             if value is not None:
                 if path_choice == "UUID":
-                    return "<UUID:{}>".format(binascii.hexlify(base64.b64decode('W0MMbmy5KEqBppYiWyfdMw==')).decode())
+                    return "<UUID:{}>".format(binascii.hexlify(base64.b64decode(value)).decode())
                 else:
                     return value
         else:
