@@ -10,7 +10,7 @@ import shlex
 import libkeepass
 import getpass
 import lxml.etree
-import readline
+import colorama
 import os
 import sys
 
@@ -19,7 +19,7 @@ import cmd
 
 class KeePassShell(cmd.Cmd):
     intro = 'Welcome to KeePassShell. Type "open" to open a file'
-    prompt = 'keepass>'
+    prompt = colorama.Fore.YELLOW + 'keepass>' + colorama.Fore.RESET
     filename = ''
     root = None
     tree = None
@@ -45,12 +45,12 @@ class KeePassShell(cmd.Cmd):
             print(ex)
 
     def _prompt(self):
-        prompt = 'keepass'
+        prompt = colorama.Fore.YELLOW + 'keepass'
         if self.filename != '':
             prompt += ':({})'.format(self.filename)
         if self.current_path != '':
             prompt += self.current_path
-        prompt += '>'
+        prompt += '>' + colorama.Fore.RESET
         return prompt
 
 
