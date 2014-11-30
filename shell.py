@@ -89,7 +89,7 @@ class KeePassShell(cmd.Cmd):
     # pass
 
     def complete_cd(self, text, line, begidx, endidx):
-        return [g for g in self._groups() if g.lower().startswith(text.lower())]
+        return [shlex.quote(g) for g in self._groups() if g.lower().startswith(text.lower())]
 
     def do_cd(self, arg):
         """Change directory (path to a group)"""
@@ -102,13 +102,14 @@ class KeePassShell(cmd.Cmd):
             else:
                 print("Already at top folder")
         else:
+            group = shlex.split(arg)[0]
             groups = self._groups()
-            if arg in groups:
-                new_group = self.current_group.find("Group[Name='{}']".format(arg))
-            elif re.match('\d+', arg) and int(arg) < len(groups):
-                new_group = self.current_group.find("Group[Name='{}']".format(groups[int(arg)]))
+            if group in groups:
+                new_group = self.current_group.find("Group[Name='{}']".format(group))
+            elif re.match('\d+', arg) and int(group) < len(groups):
+                new_group = self.current_group.find("Group[Name='{}']".format(groups[int(group)]))
             else:
-                print("Group not found:", arg)
+                print("Group not found:", group)
                 return
             self.current_path += '/' + new_group.find('Name').text
             self.current_group = new_group
@@ -210,8 +211,11 @@ class KeePassShell(cmd.Cmd):
         parser.add_argument('-e', '--entries', action="store_true")
         parser.add_argument('-g', '--groups', action="store_true")
         parser.add_argument('wildcards', nargs='*')
-        args = parser.parse_args(shlex.split(arg))
-        print(args)
+        try:
+            args = parser.parse_args(shlex.split(arg))
+        except SystemExit as ex:
+            print(repr(ex))
+            args = parser.parse_args("")
         wildcards = args.wildcards
         if not args.entries:
             for idx, name in enumerate(self._groups()):
@@ -267,15 +271,20 @@ class KeePassShell(cmd.Cmd):
     #     """Save to a specific filename (saveas <file.kdb> [<file.key>])"""
     #     pass
 
+    def complete_show(self, text, line, begidx, endidx):
+        return [shlex.quote(e) for e in self._entries() if e.lower().startswith(text.lower())]
+
     def do_show(self, arg):
         """Show an entry: show [-f] [-a] <entry path|entry number>"""
         entries = self._entries()
-        if arg in entries:
-            entry = [e for e in self.current_group.findall('Entry') if self._title(e) == arg][0]
+        entry_name = shlex.split(arg)[0]
+        if entry_name in entries:
+            entry = [e for e in self.current_group.findall('Entry') if self._title(e) == entry_name][0]
         elif re.match('\d+', arg) and int(arg) < len(entries):
-            entry = [e for e in self.current_group.findall('Entry') if self._title(e) == entries[int(arg)]][0]
+            entry = [e for e in self.current_group.findall('Entry') if self._title(e) == entries[int(entry_name)]][0]
         else:
-            print("Entry not found:", arg)
+            print("Entry not found:", entry_name)
+            return
         values = {e2.find('Key').text: e2.find('Value').text for e2 in entry.findall("String")}
         value_list = ['{} = {}'.format(k, v) for k, v in values.items()]
         value_list.sort()
