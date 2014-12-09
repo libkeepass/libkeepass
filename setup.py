@@ -1,4 +1,4 @@
-from setuptools import setup, find_packages
+from setuptools import setup
 
 setup(
     name="libkeepass",
@@ -12,7 +12,6 @@ setup(
     keywords="keepass library",
     url="https://github.com/phpwutz/libkeepass",  # project home page, if any
     test_suite="tests",
-    packages=find_packages(),
     install_requires=[
         "lxml>=3.2.1",
         "nose>=1.3.0",
