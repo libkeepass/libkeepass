@@ -15,7 +15,8 @@ setup(
     install_requires=[
         "lxml>=3.2.1",
         "nose>=1.3.0",
-        "pycrypto>=2.6.1"
+        "pycrypto>=2.6.1",
+        "colorama>=0.3.2"
     ],
     classifiers=[
         "Development Status :: 3 - Alpha",
