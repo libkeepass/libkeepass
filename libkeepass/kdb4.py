@@ -355,7 +355,7 @@ class KDBXmlExtension:
         Base64 decode and XOR the given `string` with the next salsa.
         Returns an unprotected string.
         """
-        tmp = base64.b64decode(string)
+        tmp = base64.b64decode(string.encode("utf-8"))
         return xor(tmp, self._get_salsa(len(tmp))).decode()
 
     def _protect(self, string):
