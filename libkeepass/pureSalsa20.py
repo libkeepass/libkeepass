@@ -214,7 +214,6 @@ class Salsa20(object):
     setNonce = setIV  # support an alternate name
 
     def setCounter(self, counter):
-        assert ( type(counter) in ( int, ) )
         assert ( 0 <= counter < 1 << 64 ), "counter < 0 or >= 2**64"
         ctx = self.ctx
         ctx[8], ctx[9] = little2_i32.unpack(little_u64.pack(counter))
@@ -299,7 +298,7 @@ def salsa20_wordtobyte(input_word, rounds=20, check_rounds=True):
 
     for i in range(len(input_word)):
         x[i] = add32(x[i], input_word[i])
-    return little16_i32.pack(*x)
+    return bytearray(little16_i32.pack(*x))
 
 
 # --------------------------- 32-bit ops -------------------------------
