@@ -220,11 +220,11 @@ class KeePassShell(cmd.Cmd):
         if not args.entries:
             for idx, name in enumerate(self._groups()):
                 if self._should_show(name, wildcards):
-                    print('[ ] {:3}: {}'.format(idx, name))
+                    print(u'[ ] {:3}: {}'.format(idx, name))
         if not args.groups:
             for idx, name in enumerate(self._entries()):
                 if self._should_show(name, wildcards):
-                    print('    {:3}: {}'.format(idx, name))
+                    print(u'    {:3}: {}'.format(idx, name))
 
 
     # def do_mkdir(self, arg):
