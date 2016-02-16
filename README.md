@@ -1,22 +1,22 @@
-**this library is not under active development anymore.**
+**This library is NOT under active development.** I just made a few changes to make a simple KeePass command line password retrieval program (see `samples/query.py`).
 
-If you find the code useful or find a problem, please fork the repository to apply your changes!
+If you find this code useful, do not hesitate to fork the repo and make a pull request after your changes are ready. There are no industry-strength solutions for reading and writing both KeePass 1.x & 2.x files in Python (yet). This should change :-)
 
 
-libkeepass
-==========
+libkeepass-python3
+==================
 
-Python module to read KeePass 1.x/KeePassX (v3) and KeePass 2.x (v4) files.
+Python3 module to read KeePass 1.x/KeePassX (v3) and KeePass 2.x (v4) files.
 
 Warning
 -------
 
-"this code makes no attempt to secure its memory"
+This code makes **NO ATTEMPT TO SECURE ITS MEMORY**
 
-Requirements
+Installation
 ------------
 
-see requirements.txt
+Use `setup.py`.
 
 KeePass 1.x support
 -------------------
@@ -50,10 +50,13 @@ settings in the file header and written to a stream.
 Examples
 --------
 
-    import keepass
+The `samples` directory contains basic samples of using `libkeepass-python3`.
+
+The code below demonstrates some things you can do with `libkeepass-python3` and a KeePass 2.x database:
+
+    import libkeepass
     
-    filename = "input.kdbx"
-    with keepass.open(filename, password='secret', keyfile='putty.exe') as kdb:
+    with keepass.open('input.kdbx', password='secret', keyfile='mykey.key') as kdb:
         # print parsed element tree as xml
         print kdb.pretty_print()
         
@@ -78,9 +81,9 @@ Examples
 Testing
 -------
 
-Make a virtualenv and install the requirements. Then run the tests script::
+Make a virtualenv and install the requirements. Then run the test script:
 
-    pip install -r requirements.txt
+    python setup.py install
     nosetests tests/tests.py
 
 
@@ -88,13 +91,13 @@ References
 ----------
 
 Initially Brett Viren's code was a starting point and some of his code is being
-re-used unchanged (https://github.com/brettviren/python-keepass).
+re-used unchanged (see https://github.com/brettviren/python-keepass).
 
-For v4 support reading the original Keepass2 C# source was used as inspiration
-(http://keepass.info).
+v4 support inspired by the original Keepass2 C# source (http://keepass.info)
+was added by Florian Demmer, Lukas Koell and others.
+
+Minimal Python3 support was added by Nikolay Amelichev.
 
 Keepass 2.x uses Salsa20 to protect data in XML. Currently puresalsa20 is used
 (http://www.tiac.net/~sw/2010/02/PureSalsa20/index.html) and included.
-
-Thanks to them and all others who came before are in order.
 

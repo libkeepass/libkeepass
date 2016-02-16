@@ -1,5 +1,5 @@
 python-keepass is Copyright (C) 2012 Brett Viren.
-libkeepass is Copyright (c) 2013 Florian Demmer.
+libkeepass is Copyright (c) 2013 Florian Demmer, Copyright (C) 2016 Nikolay Amelichev.
 
 
 This code is free software; you can redistribute it and/or modify it
