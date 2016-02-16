@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name = "libkeepass",
-    version = "0.1.4",
+    version = "0.1.5",
     packages = ["libkeepass"],
     author = "Nikolay Amelichev",
     author_email = "nickamelichev@gmail.com",
