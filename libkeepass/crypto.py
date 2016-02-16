@@ -40,8 +40,6 @@ def pad(s):
 def xor(aa, bb):
     """Return a bytearray of a bytewise XOR of `aa` and `bb`."""
     result = bytearray()
-    print(aa)
-    print(bb)
     for a, b in zip(bytearray(aa), bytearray(bb)):
         result.append(a ^ b)
     return result
