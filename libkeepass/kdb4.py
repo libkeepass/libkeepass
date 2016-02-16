@@ -79,7 +79,7 @@ class KDB4File(KDBFile):
         
         :arg stream: A writeable file-like object or IO buffer.
         """
-        if not (isinstance(stream, io.IOBase) or isinstance(stream, file)):
+        if not (isinstance(stream, io.IOBase)):
             raise TypeError('Stream does not have the buffer interface.')
 
         self._write_header(stream)
@@ -132,7 +132,7 @@ class KDB4File(KDBFile):
         # and version
         header.extend(struct.pack('<hh', 0, 3))
         
-        field_ids = self.header.keys()
+        field_ids = list(self.header.keys())
         field_ids.sort()
         field_ids.reverse() # field_id 0 must be last
         for field_id in field_ids:
@@ -312,7 +312,7 @@ class KDBXmlExtension:
         for elem in self.obj_root.iterfind('.//Value[@Protected="False"]'):
             etree.strip_attributes(elem, 'ProtectedValue')
             elem.set('Protected', 'True')
-            elem._setText(self._protect(elem.text))
+            elem._setText(self._protect(elem.text.encode('utf-8')))
 
     def pretty_print(self):
         """Return a serialization of the element tree."""

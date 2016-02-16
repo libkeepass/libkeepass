@@ -137,7 +137,7 @@ class KDBFile(object):
             self.read_from(stream)
 
     def read_from(self, stream):
-        if not (isinstance(stream, io.IOBase) or isinstance(stream, file)):
+        if not (isinstance(stream, io.IOBase)):
             raise TypeError('Stream does not have the buffer interface.')
         self._read_header(stream)
         self._decrypt(stream)
