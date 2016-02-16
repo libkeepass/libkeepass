@@ -16,7 +16,7 @@ This code makes **NO ATTEMPT TO SECURE ITS MEMORY**
 Installation
 ------------
 
-Use `setup.py`.
+Use `setup.py`, e.g., `sudo python3 setup.py install`.
 
 KeePass 1.x support
 -------------------
@@ -56,7 +56,7 @@ The code below demonstrates some things you can do with `libkeepass-python3` and
 
     import libkeepass
     
-    with keepass.open('input.kdbx', password='secret', keyfile='mykey.key') as kdb:
+    with libkeepass.open('input.kdbx', password='secret', keyfile='mykey.key') as kdb:
         # print parsed element tree as xml
         print kdb.pretty_print()
         
@@ -83,7 +83,7 @@ Testing
 
 Make a virtualenv and install the requirements. Then run the test script:
 
-    python setup.py install
+    python3 setup.py install
     nosetests tests/tests.py
 
 
