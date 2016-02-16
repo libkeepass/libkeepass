@@ -2,12 +2,12 @@
 import hashlib
 import struct
 from Crypto.Cipher import AES
-from pureSalsa20 import Salsa20
+from libkeepass.pureSalsa20 import Salsa20
 
 AES_BLOCK_SIZE = 16
 
 def sha256(s):
-    """Return SHA256 digest of the string `s`."""
+    """Return SHA256 digest of the bytes `s`."""
     return hashlib.sha256(s).digest()
 
 def transform_key(key, seed, rounds):
@@ -30,7 +30,7 @@ def aes_cbc_encrypt(data, key, enc_iv):
     return cipher.encrypt(data)
 
 def unpad(data):
-    extra = ord(data[-1])
+    extra = data[-1]
     return data[:len(data)-extra]
 
 def pad(s):

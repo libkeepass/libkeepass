@@ -8,16 +8,16 @@ import hashlib
 import base64
 
 
-from crypto import xor, sha256, aes_cbc_decrypt, aes_cbc_encrypt
-from crypto import transform_key, pad, unpad
+from libkeepass.crypto import xor, sha256, aes_cbc_decrypt, aes_cbc_encrypt
+from libkeepass.crypto import transform_key, pad, unpad
 
-from common import load_keyfile, stream_unpack
+from libkeepass.common import load_keyfile, stream_unpack
 
-from common import KDBFile, HeaderDictionary
-from hbio import HashedBlockIO
+from libkeepass.common import KDBFile, HeaderDictionary
+from libkeepass.hbio import HashedBlockIO
 
 
-KDB4_SALSA20_IV = bytes('e830094b97205d2a'.decode('hex'))
+KDB4_SALSA20_IV = bytes.fromhex('e830094b97205d2a')
 KDB4_SIGNATURE = (0x9AA2D903, 0xB54BFB67)
 
 
@@ -245,7 +245,7 @@ class KDB4File(KDBFile):
         combination with the master seed.
         """
         super(KDB4File, self)._make_master_key()
-        composite = sha256(''.join(self.keys))
+        composite = sha256(b''.join(self.keys))
         tkey = transform_key(composite, 
             self.header.TransformSeed, 
             self.header.TransformRounds)
@@ -254,7 +254,7 @@ class KDB4File(KDBFile):
 
 from lxml import etree
 from lxml import objectify
-from crypto import Salsa20
+from libkeepass.crypto import Salsa20
 
 class KDBXmlExtension:
     """
@@ -336,7 +336,7 @@ class KDBXmlExtension:
         requested `length`.
         """
         while length > len(self._salsa_buffer):
-            new_salsa = self.salsa.encryptBytes(str(bytearray(64)))
+            new_salsa = self.salsa.encryptBytes(bytearray(64))
             self._salsa_buffer.extend(new_salsa)
         nacho = self._salsa_buffer[:length]
         del self._salsa_buffer[:length]

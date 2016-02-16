@@ -189,14 +189,14 @@ class Salsa20(object):
 
 
     def setKey(self, key):
-        assert type(key) == str
+        assert type(key) in (bytes, bytearray)
         ctx = self.ctx
         if len( key ) == 32:  # recommended
-            constants = "expand 32-byte k"
+            constants = b"expand 32-byte k"
             ctx[ 1],ctx[ 2],ctx[ 3],ctx[ 4] = little4_i32.unpack(key[0:16])
             ctx[11],ctx[12],ctx[13],ctx[14] = little4_i32.unpack(key[16:32])
         elif len( key ) == 16:
-            constants = "expand 16-byte k"
+            constants = b"expand 16-byte k"
             ctx[ 1],ctx[ 2],ctx[ 3],ctx[ 4] = little4_i32.unpack(key[0:16])
             ctx[11],ctx[12],ctx[13],ctx[14] = little4_i32.unpack(key[0:16])
         else:
@@ -205,7 +205,7 @@ class Salsa20(object):
 
         
     def setIV(self, IV):
-        assert type(IV) == str
+        assert type(IV) in (bytes, bytearray)
         assert len(IV)*8 == 64, 'nonce (IV) not 64 bits'
         self.IV = IV
         ctx=self.ctx
@@ -216,7 +216,7 @@ class Salsa20(object):
 
 
     def setCounter( self, counter ):
-        assert( type(counter) in ( int, long ) )
+        assert( type(counter) == int )
         assert( 0 <= counter < 1<<64 ), "counter < 0 or >= 2**64"
         ctx = self.ctx
         ctx[ 8],ctx[ 9] = little2_i32.unpack( little_u64.pack( counter ) )
@@ -231,16 +231,16 @@ class Salsa20(object):
 
 
     def encryptBytes(self, data):
-        assert type(data) == str, 'data must be byte string'
+        assert type(data) in (bytes, bytearray), 'data must be byte string'
         assert self._lastChunk64, 'previous chunk not multiple of 64 bytes'
         lendata = len(data)
-        munged = array( 'c', '\x00' * lendata )
-        for i in xrange( 0, lendata, 64 ):
+        munged = array( 'B', b'\x00' * lendata )
+        for i in range( 0, lendata, 64 ):
             h = salsa20_wordtobyte( self.ctx, self.rounds, checkRounds=False )
             self.setCounter( ( self.getCounter() + 1 ) % 2**64 )
             # Stopping at 2^70 bytes per nonce is user's responsibility.
-            for j in xrange( min( 64, lendata - i ) ):
-                munged[ i+j ] = chr( ord( data[ i+j ] ) ^ ord( h[j] ) )
+            for j in range( min( 64, lendata - i ) ):
+                munged[ i+j ] = data[ i+j ] ^ h[j]
 
         self._lastChunk64 = not lendata % 64
         return munged.tostring()
@@ -264,7 +264,7 @@ def salsa20_wordtobyte( input, nRounds=20, checkRounds=True ):
     ROTATE = rot32
     PLUS   = add32
 
-    for i in range( nRounds / 2 ):
+    for i in range( nRounds // 2 ):
         # These ...XOR...ROTATE...PLUS... lines are from ecrypt-linux.c
         # unchanged except for indents and the blank line between rounds:
         x[ 4] = XOR(x[ 4],ROTATE(PLUS(x[ 0],x[12]), 7));
