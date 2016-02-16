@@ -348,14 +348,14 @@ class KDBXmlExtension:
         Returns an unprotected string.
         """
         tmp = base64.b64decode(string)
-        return str(xor(tmp, self._get_salsa(len(tmp))))
+        return bytes(xor(tmp, self._get_salsa(len(tmp))))
 
     def _protect(self, string):
         """
         XORs the given `string` with the next salsa and base64 encodes it.
         Returns a protected string.
         """
-        tmp = str(xor(string, self._get_salsa(len(string))))
+        tmp = bytes(xor(string, self._get_salsa(len(string))))
         return base64.b64encode(tmp)
 
 class KDB4Reader(KDB4File, KDBXmlExtension):
