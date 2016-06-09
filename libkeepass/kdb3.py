@@ -131,6 +131,9 @@ class KDB3File(KDBFile):
         self.master_key = sha256(self.header.MasterSeed + tkey)
 
 
+from xml.sax.saxutils import escape
+from lxml import etree
+
 class KDBExtension:
     """
     The KDB3 payload is a binary blob of groups followed by entries.
@@ -139,7 +142,51 @@ class KDBExtension:
 
     def __init__(self):
         self.in_buffer.seek(0)
+        self.entries_by_id = {}
+        self.groups_by_id = {}
         self.groups, self.entries = self._parse_body()
+
+    def pretty_print(self):
+        """Return a serialization of the element tree."""
+        pwentries = []
+        for entry in self.entries:
+            entry = entry.copy()
+            for field in ('title', 'username', 'url', 'password', 'notes'):
+                entry[field] = escape(entry[field])
+            entry['group'] = escape(entry['group'])
+            entry['grp_tree_attr'] = ''
+            if 'groups' in self.groups_by_id[entry['group_id']]:
+                parent_group_id = self.groups_by_id[entry['group_id']]['groups']
+                entry['grp_tree_attr'] = ' tree="{}"'.format(escape(self._get_group_path(parent_group_id)))
+            
+            pwentries.append(u"""\
+<pwentry>
+        <group{grp_tree_attr}>{group}</group>
+        <title>{title}</title>
+        <username>{username}</username>
+        <url>{url}</url>
+        <password>{password}</password>
+        <notes>{notes}</notes>
+        <uuid>{id}</uuid>
+        <image>{icon}</image>
+        <creationtime>{created:%Y-%m-%dT%H:%M:%S}</creationtime>
+        <lastmodtime>{modified:%Y-%m-%dT%H:%M:%S}</lastmodtime>
+        <lastaccesstime>{accessed:%Y-%m-%dT%H:%M:%S}</lastaccesstime>
+        <expiretime expires="false">{expires:%Y-%m-%dT%H:%M:%S}</expiretime>
+</pwentry>""".format(**entry))
+        
+        self.obj_root = etree.fromstring(u"""\
+<pwlist>
+{pwentries}
+</pwlist>""".format(pwentries='\n'.join(pwentries)))
+        
+        return etree.tostring(self.obj_root, pretty_print=True,
+                              encoding='utf-8', standalone=True)
+
+    def write_to(self, stream):
+        """Serialize the element tree to the out-buffer."""
+        if self.out_buffer is None:
+            self.out_buffer = io.BytesIO(self.pretty_print())
 
     def _parse_body(self):
         groups, pos = self._parse_groups(self.in_buffer.getbuffer().tobytes(), self.header.Groups)
@@ -197,6 +244,7 @@ class KDBExtension:
                     
                 previous_level = level
                 previous_groupid = int(group['group_id'])
+                self.groups_by_id[group['group_id']] = group
                 groups.append(group)
                 group = {}
             else:
@@ -222,6 +270,7 @@ class KDBExtension:
                 entry['id'] = parse_null_turminated(b2a_hex(buf[pos:pos+size]))
             elif (m_type == 2):
                 entry['group_id'] = struct.unpack('<L', buf[pos:pos+4])[0]
+                entry['group'] = self.groups_by_id[entry['group_id']]['title']
             elif (m_type == 3):
                 entry['icon'] = struct.unpack('<L', buf[pos:pos+4])[0]
             elif (m_type == 4):
@@ -279,6 +328,7 @@ class KDBExtension:
                 elif ('notes' in entry and entry['notes'] == 'KPX_CUSTOM_ICONS_4'):
                     pass
                 else:
+                    self.entries_by_id[entry['id']] = entry
                     entries.append(entry)
                 entry = {}
             else:
@@ -306,6 +356,20 @@ class KDBExtension:
                 return True
         return False
 
+    def _get_group_path(self, group_id):
+        if 'path' in self.groups_by_id[group_id]:
+            return self.groups_by_id[group_id]['path']
+        
+        group = self.groups_by_id[group_id]
+        group_path = [group['title']]
+        while 'groups' in group:
+            if 'path' in self.groups_by_id[group['groups']]:
+                group_path.insert(0, self.groups_by_id[group['groups']]['path'])
+                break
+            group = self.groups_by_id[group['groups']]
+            group_path.insert(0, group['title'])
+        gpath = self.groups_by_id[group_id]['path'] = '\\'.join(group_path)
+        return gpath
 
 
 class KDB3Reader(KDB3File, KDBExtension):
