@@ -271,6 +271,8 @@ class KDBExtension:
                             for g in groups:
                                 if (g['group_id'] == group_id):
                                     g['expanded'] = is_expanded
+                elif ('notes' in entry and entry['notes'] == 'KPX_CUSTOM_ICONS_4'):
+                    pass
                 else:
                     entries.append(entry)
                 entry = {}
