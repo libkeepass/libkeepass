@@ -6,8 +6,10 @@ import gzip
 import struct
 import hashlib
 import base64
+import codecs
 
 from libkeepass.crypto import xor, sha256, aes_cbc_decrypt, aes_cbc_encrypt
+from libkeepass.crypto import twofish_cbc_decrypt, twofish_cbc_encrypt
 from libkeepass.crypto import transform_key, pad, unpad
 
 from libkeepass.common import load_keyfile, stream_unpack
@@ -44,7 +46,17 @@ class KDB4Header(HeaderDictionary):
         'InnerRandomStreamID': 10,
     }
 
-    fmt = {3: '<I', 6: '<q'}
+    fmt = {3: '<I', 6: '<q', 10: '<I'}
+    
+    protected_streams = {
+        1: 'ArcFourVariant',
+        2: 'Salsa20',
+    }
+    
+    ciphers = {
+        codecs.decode(b'31c1f2e6bf714350be5805216afc5aff', 'hex'): 'AES',
+        codecs.decode(b'ad68f29f576f4bb9a36ad47af965346c', 'hex'): 'Twofish',
+    }
 
 
 class KDB4File(KDBFile):
@@ -180,9 +192,17 @@ class KDB4File(KDBFile):
         """
         super(KDB4File, self)._decrypt(stream)
 
-        data = aes_cbc_decrypt(stream.read(), self.master_key,
-                               self.header.EncryptionIV)
-        data = unpad(data)
+        ciphername = self.header.ciphers.get(self.header.CipherID, self.header.CipherID)
+        if ciphername == 'AES':
+            data = aes_cbc_decrypt(stream.read(), self.master_key,
+                                   self.header.EncryptionIV)
+            data = unpad(data)
+        elif ciphername == 'Twofish':
+            data = twofish_cbc_decrypt(stream.read(), self.master_key,
+                                   self.header.EncryptionIV)
+            data = unpad(data)
+        else:
+            raise IOError('Unsupported decryption type: %s'%codecs.encode(ciphername, 'hex'))
 
         length = len(self.header.StreamStartBytes)
         if self.header.StreamStartBytes == data[:length]:
@@ -215,9 +235,17 @@ class KDB4File(KDBFile):
         self.out_buffer.seek(0)
 
         # encrypt the whole thing with header settings and master key
-        data = pad(self.out_buffer.read())
-        self.out_buffer = aes_cbc_encrypt(data, self.master_key,
-                                          self.header.EncryptionIV)
+        ciphername = self.header.ciphers.get(self.header.CipherID, self.header.CipherID)
+        if ciphername == 'AES':
+            data = pad(self.out_buffer.read())
+            self.out_buffer = aes_cbc_encrypt(data, self.master_key,
+                                              self.header.EncryptionIV)
+        elif ciphername == 'Twofish':
+            data = pad(self.out_buffer.read())
+            self.out_buffer = twofish_cbc_encrypt(data, self.master_key,
+                                                  self.header.EncryptionIV)
+        else:
+            raise IOError('Unsupported encryption type: %s'%codecs.encode(ciphername, 'hex'))
 
     def _unzip(self):
         """
