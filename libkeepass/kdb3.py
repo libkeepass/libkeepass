@@ -189,6 +189,11 @@ class KDBExtension:
                 if (previous_level < level):
                     if (self._is_group_exists(groups, previous_groupid)):
                         group['groups'] = previous_groupid
+                elif (previous_level == level) and (level > 0) \
+                     and 'groups' in groups[-1]:
+                    # If we didn't change levels, then this group has the same
+                    # parent as the last one
+                    group['groups'] = groups[-1]['groups']
                     
                 previous_level = level
                 previous_groupid = int(group['group_id'])
