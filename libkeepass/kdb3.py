@@ -5,6 +5,8 @@ import zlib
 import struct
 import hashlib
 import base64
+import datetime
+from binascii import * # for entry id
 
 from libkeepass.crypto import xor, sha256, aes_cbc_decrypt, twofish_cbc_decrypt
 from libkeepass.crypto import transform_key, unpad
@@ -14,6 +16,16 @@ from libkeepass.common import KDBFile, HeaderDictionary
 
 
 KDB3_SIGNATURE = (0x9AA2D903, 0xB54BFB65)
+
+
+def parse_null_turminated(a_string):
+    """
+    Strips the first null byte '\x00' from the given argument and returns a
+    string/unicode object. Works on strings in python 2 and on byte strings
+    in python 3.
+    """
+    a_string = a_string.replace('\x00'.encode('utf8'), ''.encode('utf8'))
+    return a_string.decode('utf8')
 
 
 class KDB3Header(HeaderDictionary):
@@ -121,11 +133,161 @@ class KDB3File(KDBFile):
 
 class KDBExtension:
     """
-    The KDB3 payload is a ... #TODO ...
+    The KDB3 payload is a binary blob of groups followed by entries.
     """
+    # Liberally copied from https://github.com/shirou/kptool/blob/master/kptool/keepassdb/keepassdb.py
 
     def __init__(self):
-        pass
+        self.in_buffer.seek(0)
+        self.groups, self.entries = self._parse_body()
+
+    def _parse_body(self):
+        groups, pos = self._parse_groups(self.in_buffer.getbuffer().tobytes(), self.header.Groups)
+        entries = self._parse_entries(self.in_buffer.getbuffer().tobytes(), self.header.Entries, pos, groups)
+        return (groups, entries)
+
+    def _parse_groups(self, buf, n_groups):
+        pos = 0
+        previous_level = 0
+        previous_groupid = -1
+        groups = []
+        group = {}
+        while(n_groups):
+            m_type = struct.unpack("<H", buf[pos:pos+2])[0]
+            pos += 2
+            if pos >= len(buf):
+                raise ValueError("Group header offset is out of range. ($pos)")
+            size = struct.unpack("<L", buf[pos:pos+4])[0]
+            pos += 4
+            if (pos + size) > len(buf):
+                raise ValueError("Group header offset is out of range. ($pos, $size)")
+            if (m_type == 1):
+                group['group_id'] = struct.unpack("<L", buf[pos:pos+4])[0]
+            elif (m_type == 2):
+                group['title'] = parse_null_turminated(buf[pos:pos+size])
+            elif (m_type == 7):
+                group['icon'] = struct.unpack("<L", buf[pos:pos+4])[0]
+            elif (m_type == 8):
+                group['level'] = struct.unpack("<H", buf[pos:pos+2])[0]
+            elif (m_type == 0xFFFF): # end of a group
+                n_groups -= 1
+                if ('level' in group):
+                    level = group['level']
+                else:
+                    level = 0
+                if (previous_level < level):
+                    if (self._is_group_exists(groups, previous_groupid)):
+                        group['groups'] = previous_groupid
+                    
+                previous_level = level
+                previous_groupid = int(group['group_id'])
+                groups.append(group)
+                group = {}
+            else:
+                group['unknown'] = buf[pos:pos+size]
+                
+            pos += size;
+
+        return groups, pos
+
+    def _parse_entries(self, buf, n_entries, pos, groups):
+        entry = {}
+        entries = []
+        while(n_entries):
+            m_type = struct.unpack("<H", buf[pos:pos+2])[0]
+            pos += 2;
+            if pos >= len(buf):
+                raise ValueError("Entry header offset is out of range. ($pos)")
+            size = struct.unpack('<L', buf[pos:pos+4])[0]
+            pos += 4
+            if (pos + size) > len(buf):
+                raise ValueError("Entry header offset is out of range. ($pos, $size)" )
+            if (m_type == 1):
+                entry['id'] = parse_null_turminated(b2a_hex(buf[pos:pos+size]))
+            elif (m_type == 2):
+                entry['group_id'] = struct.unpack('<L', buf[pos:pos+4])[0]
+            elif (m_type == 3):
+                entry['icon'] = struct.unpack('<L', buf[pos:pos+4])[0]
+            elif (m_type == 4):
+                entry['title'] = parse_null_turminated(buf[pos:pos+size])
+            elif (m_type == 5):
+                entry['url'] = parse_null_turminated(buf[pos:pos+size])
+            elif (m_type == 6):
+                entry['username'] = parse_null_turminated(buf[pos:pos+size])
+            elif (m_type == 7):
+                entry['password'] = parse_null_turminated(buf[pos:pos+size])
+            elif (m_type == 8):
+                entry['comment'] = parse_null_turminated(buf[pos:pos+size])
+            elif (m_type == 9):
+                entry['created'] = self._parse_date(buf, pos, size)
+            elif (m_type == 0xA):
+                entry['modified'] = self._parse_date(buf, pos, size)
+            elif (m_type == 0xB):
+                entry['accessed'] = self._parse_date(buf, pos, size)
+            elif (m_type == 0xC):
+                entry['expires'] = self._parse_date(buf, pos, size)
+            elif (m_type == 0xD):
+                entry['bin_desc'] = parse_null_turminated(buf[pos:pos+size])
+            elif (m_type == 0xE):
+                entry['binary'] = buf[pos:pos+size]
+            elif (m_type == 0xFFFF): # end of a entry
+                n_entries -= 1
+                
+                # orphaned nodes go into the special group
+                if not self._is_group_exists(groups, entry['group_id']):
+                    if (not self._is_group_exists(groups, -1)):
+                        group = {}
+                        group['group_id'] = -1
+                        group['title'] = "*Orphaned*"
+                        group['icon']    = 0
+                        groups.append(group)
+                    entry['group_id'] = -1
+
+                if ('comment' in entry and entry['comment'] == 'KPX_GROUP_TREE_STATE'):
+                    if (not 'binary' in entry or len(entry['binary']) < 4):
+                            raise ValueError("Discarded metastream KPX_GROUP_TREE_STATE because of a parsing error.")
+                    n = struct.unpack('<L', entry['binary'][:4])[0]
+                    if (n * 5 != len(entry['binary']) - 4):
+                        raise ValueError("Discarded metastream KPX_GROUP_TREE_STATE because of a parsing binary error.")
+                    else:
+                        for i in range(0,n):
+                            s = 4+i*5
+                            e = 4+i*5 + 4
+                            group_id = struct.unpack('<L', entry['binary'][s:e])[0]
+                            s = 8+i*5
+                            e = 8+i*5 + 1
+                            is_expanded = struct.unpack('B', entry['binary'][s:e])[0]
+                            for g in groups:
+                                if (g['group_id'] == group_id):
+                                    g['expanded'] = is_expanded
+                else:
+                    entries.append(entry)
+                entry = {}
+            else:
+                entry['unknown'] = buf[pos:pos+size]
+                
+            pos += size;
+
+        return entries
+
+    def _parse_date(self, buf, pos, size):
+        b = struct.unpack('<5B', buf[pos:pos+size])
+        year = (b[0] << 6) | (b[1] >> 2);
+        mon    = ((b[1] & 0b11)         << 2) | (b[2] >> 6);
+        day    = ((b[2] & 0b111111) >> 1);
+        hour = ((b[2] & 0b1)            << 4) | (b[3] >> 4);
+        min    = ((b[3] & 0b1111)     << 2) | (b[4] >> 6);
+        sec    = ((b[4] & 0b111111));
+
+        return datetime.datetime(year, mon, day, hour, min, sec)
+        # return "%04d-%02d-%02d %02d:%02d:%02d" % (year, mon, day, hour, min, sec)
+
+    def _is_group_exists(self, groups, group_id):
+        for g in groups:
+            if (g['group_id'] == group_id):
+                return True
+        return False
+
 
 
 class KDB3Reader(KDB3File, KDBExtension):
