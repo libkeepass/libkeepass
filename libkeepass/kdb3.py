@@ -228,7 +228,7 @@ class KDBExtension:
             elif (m_type == 7):
                 entry['password'] = parse_null_turminated(buf[pos:pos+size])
             elif (m_type == 8):
-                entry['comment'] = parse_null_turminated(buf[pos:pos+size])
+                entry['notes'] = parse_null_turminated(buf[pos:pos+size])
             elif (m_type == 9):
                 entry['created'] = self._parse_date(buf, pos, size)
             elif (m_type == 0xA):
@@ -254,7 +254,7 @@ class KDBExtension:
                         groups.append(group)
                     entry['group_id'] = -1
 
-                if ('comment' in entry and entry['comment'] == 'KPX_GROUP_TREE_STATE'):
+                if ('notes' in entry and entry['notes'] == 'KPX_GROUP_TREE_STATE'):
                     if (not 'binary' in entry or len(entry['binary']) < 4):
                             raise ValueError("Discarded metastream KPX_GROUP_TREE_STATE because of a parsing error.")
                     n = struct.unpack('<L', entry['binary'][:4])[0]
