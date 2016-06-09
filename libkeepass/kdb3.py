@@ -5,6 +5,7 @@ import zlib
 import struct
 import hashlib
 import base64
+import random
 import datetime
 from binascii import * # for entry id
 
@@ -144,6 +145,7 @@ class KDBExtension:
         self.in_buffer.seek(0)
         self.entries_by_id = {}
         self.groups_by_id = {}
+        self.icons = []
         self.groups, self.entries = self._parse_body()
 
     def pretty_print(self):
@@ -326,7 +328,37 @@ class KDBExtension:
                                 if (g['group_id'] == group_id):
                                     g['expanded'] = is_expanded
                 elif ('notes' in entry and entry['notes'] == 'KPX_CUSTOM_ICONS_4'):
-                    pass
+                    if entry['bin_desc'] != 'bin-stream':
+                        raise ValueError("Discarded metastream KPX_CUSTOM_ICONS_4 because not a binary stream.")
+                    data = entry['binary']
+                    if len(data) < 12:
+                        raise ValueError("Discarded metastream KPX_CUSTOM_ICONS_4 because format not valid.")
+                    
+                    # format: https://github.com/keepassx/keepassx/blob/master/src/format/KeePass1Reader.cpp#L855
+                    nIcons, nEntries, nGroups = struct.unpack('<LLL', data[:12])
+                    ipos = 12
+                    for i in range(nIcons):
+                        size = struct.unpack('<L', data[ipos:ipos+4])
+                        icon = data[ipos+4:ipos+4+size]
+                        self.icons.append(dict(id=random.getrandbits(32), data=icon))
+                        ipos += size + 4
+                    
+                    if len(data) < (ipos + (nEntries * 20)):
+                        raise ValueError("Custom icon entries truncated.")
+                    for i in range(nEntries):
+                        entryid = b2a_hex(data[ipos:ipos+16])
+                        iconid = struct.unpack('<L', data[ipos+16:ipos+16+4])
+                        if entryid in self.entries_by_id:
+                            self.entries_by_id[entryid]['icon'] = iconid
+                        ipos += 20
+                    
+                    if len(data) < (ipos + (nGroups * 8)):
+                        raise ValueError("Custom icon groups truncated.")
+                    for i in range(nEntries):
+                        groupid, iconid = struct.unpack('<L', data[ipos:ipos+4+4])
+                        if groupid in self.groups_by_id:
+                            self.groups_by_id[groupid]['icon'] = iconid
+                        ipos += 8
                 else:
                     self.entries_by_id[entry['id']] = entry
                     entries.append(entry)
