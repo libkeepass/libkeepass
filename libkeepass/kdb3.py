@@ -165,10 +165,21 @@ class KDBExtension:
                 group['group_id'] = struct.unpack("<L", buf[pos:pos+4])[0]
             elif (m_type == 2):
                 group['title'] = parse_null_turminated(buf[pos:pos+size])
+            elif (m_type == 3):
+                group['created'] = self._parse_date(buf, pos, size)
+            elif (m_type == 4):
+                group['modified'] = self._parse_date(buf, pos, size)
+            elif (m_type == 5):
+                group['accessed'] = self._parse_date(buf, pos, size)
+            elif (m_type == 6):
+                group['expires'] = self._parse_date(buf, pos, size)
             elif (m_type == 7):
                 group['icon'] = struct.unpack("<L", buf[pos:pos+4])[0]
             elif (m_type == 8):
                 group['level'] = struct.unpack("<H", buf[pos:pos+2])[0]
+            elif (m_type == 9):
+                # flags ignore
+                pass
             elif (m_type == 0xFFFF): # end of a group
                 n_groups -= 1
                 if ('level' in group):
@@ -184,7 +195,7 @@ class KDBExtension:
                 groups.append(group)
                 group = {}
             else:
-                group['unknown'] = buf[pos:pos+size]
+                group['unknown_%x'%m_type] = buf[pos:pos+size]
                 
             pos += size;
 
@@ -264,7 +275,7 @@ class KDBExtension:
                     entries.append(entry)
                 entry = {}
             else:
-                entry['unknown'] = buf[pos:pos+size]
+                entry['unknown_%x'%m_type] = buf[pos:pos+size]
                 
             pos += size;
 
