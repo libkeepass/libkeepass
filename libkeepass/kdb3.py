@@ -198,7 +198,7 @@ class KDBExtension:
     def _parse_groups(self, buf, n_groups):
         pos = 0
         previous_level = 0
-        previous_groupid = -1
+        group_stack = []
         groups = []
         group = {}
         while(n_groups):
@@ -235,17 +235,26 @@ class KDBExtension:
                     level = group['level']
                 else:
                     level = 0
-                if (previous_level < level):
-                    if (self._is_group_exists(groups, previous_groupid)):
-                        group['groups'] = previous_groupid
-                elif (previous_level == level) and (level > 0) \
-                     and 'groups' in groups[-1]:
-                    # If we didn't change levels, then this group has the same
-                    # parent as the last one
-                    group['groups'] = groups[-1]['groups']
-                    
+                
+                if not group_stack:
+                    assert level < 1, group
+                    group_stack.append(group)
+                elif previous_level < level:
+                    assert previous_level == level-1, (previous_level, level)
+                    group['groups'] = group_stack[-1]['group_id']
+                    group_stack.append(group)
+                elif previous_level == level:
+                    if level > 0:
+                        group['groups'] = group_stack[-1]['groups']
+                    group_stack[-1] = group
+                elif previous_level > level:
+                    group_stack[level-previous_level:] = []
+                    if level > 0:
+                        group['groups'] = group_stack[-1]['groups']
+                    group_stack[-1] = group
                 previous_level = level
-                previous_groupid = int(group['group_id'])
+                assert group['level'] <= 0 or 'groups' in group, group
+                
                 self.groups_by_id[group['group_id']] = group
                 groups.append(group)
                 group = {}
