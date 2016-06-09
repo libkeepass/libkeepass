@@ -160,6 +160,7 @@ class KDBExtension:
             if 'groups' in self.groups_by_id[entry['group_id']]:
                 parent_group_id = self.groups_by_id[entry['group_id']]['groups']
                 entry['grp_tree_attr'] = ' tree="{}"'.format(escape(self._get_group_path(parent_group_id)))
+            entry['expire_valid'] = (entry['expires'] != datetime.datetime(2999, 12, 28, 23, 59, 59))
             
             pwentries.append(u"""\
 <pwentry>
@@ -174,7 +175,7 @@ class KDBExtension:
         <creationtime>{created:%Y-%m-%dT%H:%M:%S}</creationtime>
         <lastmodtime>{modified:%Y-%m-%dT%H:%M:%S}</lastmodtime>
         <lastaccesstime>{accessed:%Y-%m-%dT%H:%M:%S}</lastaccesstime>
-        <expiretime expires="false">{expires:%Y-%m-%dT%H:%M:%S}</expiretime>
+        <expiretime expires="{expire_valid}">{expires:%Y-%m-%dT%H:%M:%S}</expiretime>
 </pwentry>""".format(**entry))
         
         self.obj_root = etree.fromstring(u"""\
