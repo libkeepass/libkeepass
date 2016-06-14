@@ -33,11 +33,11 @@ class TextCrypto(unittest.TestCase):
                           b'\xedz\x15\x9c\x96\x03K\x8a\xa1')
 
     def test_aes_cbc_decrypt(self):
-        self.assertEquals(aes_cbc_decrypt('datamustbe16byte', sha256(b'b'),
-                                          'ivmustbe16bytesl'),
+        self.assertEquals(aes_cbc_decrypt(b'datamustbe16byte', sha256(b'b'),
+                                          b'ivmustbe16bytesl'),
                           b'x]\xb5\xa6\xe3\x10\xf4\x88\x91_\x03\xc6\xb9\xfb`)')
-        self.assertEquals(aes_cbc_decrypt('datamustbe16byte', sha256(b'c'),
-                                          'ivmustbe16bytesl'),
+        self.assertEquals(aes_cbc_decrypt(b'datamustbe16byte', sha256(b'c'),
+                                          b'ivmustbe16bytesl'),
                           b'\x06\x91 \xd9\\\xd8\x14\xa0\xdc\xd7\x82\xa0\x92\xfb\xe8l')
 
     def test_xor(self):
