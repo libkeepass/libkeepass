@@ -77,15 +77,9 @@ class KDB3File(KDBFile):
         # skip file signature
         stream.seek(8)
 
-        field_id = 0
-        while True:
-            length = self.header.lengths[field_id]
+        for field_id, length in enumerate(self.header.lengths):
             data = stream_unpack(stream, None, length, '{}s'.format(length))
             self.header.b[field_id] = data
-
-            field_id += 1
-            if field_id > 8:
-                break
 
         # this is impossible, as long as noone messes with self.header.lengths
         if self.header_length != stream.tell():
