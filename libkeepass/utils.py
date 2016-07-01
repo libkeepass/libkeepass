@@ -64,9 +64,17 @@ def convert_kdb3_to_kxml4(kdb3):
         group_id_map[group['group_id']] = group['uuid']
         group['expire_valid'] = (group['expires'] != datetime.datetime(2999, 12, 28, 23, 59, 59))
         group['expanded'] = str(bool(group['expanded']))
+        group['enable_auto_type'] = 'null'
+        group['enable_searching'] = 'null'
         
         for k in ('uuid', 'title'):
             group[k] = escape(group[k])
+        
+        if group['title'] == 'Backup':
+            # by default we don't want to search the Backup group, since these
+            # were deleted entries
+            group['enable_auto_type'] = 'False'
+            group['enable_searching'] = 'False'
         
         groupEl = lxml.etree.fromstring(u"""\
 <Group>
@@ -81,6 +89,8 @@ def convert_kdb3_to_kxml4(kdb3):
         <Expires>{expire_valid}</Expires>
     </Times>
     <IsExpanded>{expanded}</IsExpanded>
+    <EnableAutoType>{enable_auto_type}</EnableAutoType>
+    <EnableSearching>{enable_searching}</EnableSearching>
 </Group>""".format(**group))
         # FIXME: We assume the v3 timestamps are in UTC, but this is almost
         #   certainly not the case. Perhaps we should allow the user to specify.
