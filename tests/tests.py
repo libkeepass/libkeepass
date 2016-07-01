@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import os
 import sys
+import datetime
 import unittest
 
 import libkeepass
@@ -259,11 +260,6 @@ class TestKDB4(unittest.TestCase):
             with libkeepass.open(absfile1, password="invalid", keyfile="invalid"):
                 pass
 
-        # old kdb file
-        with libkeepass.open(absfile2, password="asdf") as kdb:
-            self.assertIsNotNone(kdb)
-            self.assertEquals(kdb.opened, True)
-
         # valid password
         with libkeepass.open(absfile1, password="asdf") as kdb:
             self.assertIsNotNone(kdb)
@@ -313,6 +309,30 @@ class TestKDB4(unittest.TestCase):
         with libkeepass.open(absfile6, password="qwerty") as kdb:
             self.assertIsNotNone(kdb)
             self.assertEquals(kdb.opened, True)
+
+class TestKDB3(unittest.TestCase):
+    def test_open_file(self):
+        # old kdb file
+        with libkeepass.open(absfile2, password="asdf") as kdb:
+            self.assertIsNotNone(kdb)
+            self.assertEquals(kdb.opened, True)
+            self.assertIsInstance(kdb, libkeepass.kdb3.KDB3Reader)
+
+    def test_verify_kdb3(self):
+        with libkeepass.open(absfile2, password="asdf") as kdb:
+            self.assertEquals([e['title'] for e in kdb.groups], ['Internet', 'eMail'])
+            self.assertEquals(len(kdb.entries), 1)
+            verify_entry = kdb.entries[0].copy()
+            verify_entry.update({
+                'username': 'asdf',
+                'password': 'asdf',
+                'url': 'asdf',
+                'title': 'asdf',
+                'group_id': 623687138,
+                'group': 'Internet',
+                'modified': datetime.datetime(2012, 7, 20, 20, 27, 2),
+            })
+            self.assertEquals(kdb.entries[0], verify_entry)
 
 # # valid password and plain keyfile, uncompressed kdb
 # with libkeepass.open(absfile5, password="qwer", keyfile=keyfile5) as kdb:
