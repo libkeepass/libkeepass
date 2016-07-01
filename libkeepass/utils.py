@@ -7,6 +7,7 @@ import uuid
 import base64
 import datetime
 import codecs
+import struct
 
 from xml.sax.saxutils import escape
 import lxml.etree
@@ -15,6 +16,7 @@ import lxml.objectify
 import libkeepass.common
 import libkeepass.kdb3
 import libkeepass.kdb4
+from libkeepass.crypto import sha256
 
 
 def convert_kdb3_to_kxml4(kdb3):
@@ -56,11 +58,13 @@ def convert_kdb3_to_kxml4(kdb3):
         group = group.copy()
         if group['level'] == 0:
             group['groups'] = 0
-        # TODO: Should the uuid be created from the old group_id in some way
-        #   to try to provide consistency for multiple conversions of the same
-        #   kdb file?  I don't think it should matter for groups, so long as
-        #   entries have matching uuids.
-        group['uuid'] = base64.b64encode(uuid.uuid4().bytes).decode('ascii')
+        # Create group uuid from 32-bit unique group id.  All group ids with in
+        # a file should be unique. However, its possible that two out of sync
+        # files have two different groups with the same group id. Although this
+        # should be sufficiently improbable.
+        # Use first half of cryptographic sha256 hash to uniquely map the 32-bit
+        # (4-byte) group id into the 16-byte UUID space.
+        group['uuid'] = base64.b64encode(sha256(struct.pack("<L", group['group_id']))[:16]).decode('ascii')
         group_id_map[group['group_id']] = group['uuid']
         group['expire_valid'] = (group['expires'] != datetime.datetime(2999, 12, 28, 23, 59, 59))
         group['expanded'] = str(bool(group['expanded']))
