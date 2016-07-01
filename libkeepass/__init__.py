@@ -23,6 +23,9 @@ _kdb_readers = {
     libkeepass.kdb4.KDB4_SIGNATURE[1]: libkeepass.kdb4.KDB4Reader,
 }
 
+class UnknownKDBError(IOError): pass
+
+
 @contextmanager
 def open(filename, mode='rb+', **credentials):
     """
@@ -71,10 +74,10 @@ def get_kdb_reader(signature):
     and the second the sub signature as integers.
     """
     if signature[0] != BASE_SIGNATURE:
-        raise IOError('Unknown base signature.')
+        raise UnknownKDBError('Unknown base signature.')
 
     if signature[1] not in _kdb_readers:
-        raise IOError('Unknown sub signature.')
+        raise UnknownKDBError('Unknown sub signature.')
 
     return _kdb_readers[signature[1]]
 
