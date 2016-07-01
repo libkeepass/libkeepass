@@ -40,15 +40,27 @@ def open(filename, mode='rb+', **credentials):
     kdb = None
     try:
         with io.open(filename, mode) as stream:
-            signature = libkeepass.common.read_signature(stream)
-            cls = get_kdb_reader(signature)
-            kdb = cls(stream, **credentials)
+            kdb = open_stream(stream, **credentials)
             yield kdb
             kdb.close()
     except:
         if kdb:
             kdb.close()
         raise
+
+
+def open_stream(stream, **credentials):
+    """
+    Create a keepass database reader object from a `stream`.
+    
+    Files are identified using their signature and a reader suitable for 
+    the file format is intialized and returned.
+    """
+    assert isinstance(stream, io.IOBase) or isinstance(stream, file)
+    signature = common.read_signature(stream)
+    cls = get_kdb_reader(signature)
+    kdb = cls(stream, **credentials)
+    return kdb
 
 
 def add_kdb_reader(sub_signature, cls):
