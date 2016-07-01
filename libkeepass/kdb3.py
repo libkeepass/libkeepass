@@ -6,7 +6,7 @@ import struct
 import hashlib
 import base64
 
-from libkeepass.crypto import xor, sha256, aes_cbc_decrypt
+from libkeepass.crypto import xor, sha256, aes_cbc_decrypt, twofish_cbc_decrypt
 from libkeepass.crypto import transform_key, unpad
 
 from libkeepass.common import load_keyfile, stream_unpack
@@ -45,7 +45,7 @@ class KDB3Header(HeaderDictionary):
         #2: 'Rijndael',
         2: 'AES',
         4: 'ArcFour',
-        8: 'TwoFish',
+        8: 'Twofish',
     }
 
 
@@ -81,9 +81,16 @@ class KDB3File(KDBFile):
     def _decrypt(self, stream):
         super(KDB3File, self)._decrypt(stream)
 
-        data = aes_cbc_decrypt(stream.read(), self.master_key,
+        if self.header.encryption_flags[self.header.Flags-1] == 'AES':
+            data = aes_cbc_decrypt(stream.read(), self.master_key,
                                self.header.EncryptionIV)
-        data = unpad(data)
+            data = unpad(data)
+        elif self.header.encryption_flags[self.header.Flags-1] == 'Twofish':
+            data = twofish_cbc_decrypt(stream.read(), self.master_key,
+                               self.header.EncryptionIV)
+            data = unpad(data)
+        else:
+            raise IOError('Unsupported encryption type: %s'%self.header.encryption_flags.get(self.header['Flags']-1, self.header['Flags']-1))
 
         if self.header.ContentHash == sha256(data):
             # put data in bytes io
