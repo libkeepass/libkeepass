@@ -2,6 +2,14 @@
 import io
 from contextlib import contextmanager
 
+# Python 2 BytesIO has no getbuffer method
+if not hasattr(io.BytesIO(), 'getbuffer'):
+    class BytesIO(io.BytesIO):
+        def getbuffer(self):
+            return memoryview(self.getvalue())
+    io.BytesIO = BytesIO
+
+
 import libkeepass.common
 import libkeepass.kdb3
 import libkeepass.kdb4
