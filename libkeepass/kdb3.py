@@ -140,6 +140,7 @@ class KDBExtension:
         self.entries_by_id = {}
         self.groups_by_id = {}
         self.icons = []
+        self.metainfo = []
         self.groups, self.entries = self._parse_body()
 
     def pretty_print(self):
@@ -314,55 +315,60 @@ class KDBExtension:
                         groups.append(group)
                     entry['group_id'] = -1
 
-                if ('notes' in entry and entry['notes'] == 'KPX_GROUP_TREE_STATE'):
-                    if (not 'binary' in entry or len(entry['binary']) < 4):
-                            raise ValueError("Discarded metastream KPX_GROUP_TREE_STATE because of a parsing error.")
-                    n = struct.unpack('<L', entry['binary'][:4])[0]
-                    if (n * 5 != len(entry['binary']) - 4):
-                        raise ValueError("Discarded metastream KPX_GROUP_TREE_STATE because of a parsing binary error.")
-                    else:
-                        for i in range(0,n):
-                            s = 4+i*5
-                            e = 4+i*5 + 4
-                            group_id = struct.unpack('<L', entry['binary'][s:e])[0]
-                            s = 8+i*5
-                            e = 8+i*5 + 1
-                            is_expanded = struct.unpack('B', entry['binary'][s:e])[0]
-                            for g in groups:
-                                if (g['group_id'] == group_id):
-                                    g['expanded'] = is_expanded
-                elif ('notes' in entry and entry['notes'] == 'KPX_CUSTOM_ICONS_4'):
-                    if entry['bin_desc'] != 'bin-stream':
-                        raise ValueError("Discarded metastream KPX_CUSTOM_ICONS_4 because not a binary stream.")
-                    data = entry['binary']
-                    if len(data) < 12:
-                        raise ValueError("Discarded metastream KPX_CUSTOM_ICONS_4 because format not valid.")
-                    
-                    # format: https://github.com/keepassx/keepassx/blob/master/src/format/KeePass1Reader.cpp#L855
-                    nIcons, nEntries, nGroups = struct.unpack('<LLL', data[:12])
-                    ipos = 12
-                    for i in range(nIcons):
-                        size = struct.unpack('<L', data[ipos:ipos+4])
-                        icon = data[ipos+4:ipos+4+size]
-                        self.icons.append(dict(id=random.getrandbits(32), data=icon))
-                        ipos += size + 4
-                    
-                    if len(data) < (ipos + (nEntries * 20)):
-                        raise ValueError("Custom icon entries truncated.")
-                    for i in range(nEntries):
-                        entryid = b2a_hex(data[ipos:ipos+16])
-                        iconid = struct.unpack('<L', data[ipos+16:ipos+16+4])
-                        if entryid in self.entries_by_id:
-                            self.entries_by_id[entryid]['icon'] = iconid
-                        ipos += 20
-                    
-                    if len(data) < (ipos + (nGroups * 8)):
-                        raise ValueError("Custom icon groups truncated.")
-                    for i in range(nEntries):
-                        groupid, iconid = struct.unpack('<L', data[ipos:ipos+4+4])
-                        if groupid in self.groups_by_id:
-                            self.groups_by_id[groupid]['icon'] = iconid
-                        ipos += 8
+                if entry['title'] == 'Meta-Info' and entry['username'] == 'SYSTEM' and entry['url'] == '$':
+                    if ('notes' in entry and entry['notes'] == 'KPX_GROUP_TREE_STATE'):
+                        if (not 'binary' in entry or len(entry['binary']) < 4):
+                                raise ValueError("Discarded metastream KPX_GROUP_TREE_STATE because of a parsing error.")
+                        n = struct.unpack('<L', entry['binary'][:4])[0]
+                        if (n * 5 != len(entry['binary']) - 4):
+                            raise ValueError("Discarded metastream KPX_GROUP_TREE_STATE because of a parsing binary error.")
+                        else:
+                            for i in range(0,n):
+                                s = 4+i*5
+                                e = 4+i*5 + 4
+                                group_id = struct.unpack('<L', entry['binary'][s:e])[0]
+                                s = 8+i*5
+                                e = 8+i*5 + 1
+                                is_expanded = struct.unpack('B', entry['binary'][s:e])[0]
+                                for g in groups:
+                                    if (g['group_id'] == group_id):
+                                        g['expanded'] = is_expanded
+                    elif ('notes' in entry and entry['notes'] == 'KPX_CUSTOM_ICONS_4'):
+                        if entry['bin_desc'] != 'bin-stream':
+                            raise ValueError("Discarded metastream KPX_CUSTOM_ICONS_4 because not a binary stream.")
+                        data = entry['binary']
+                        if len(data) < 12:
+                            raise ValueError("Discarded metastream KPX_CUSTOM_ICONS_4 because format not valid.")
+                        
+                        # format: https://github.com/keepassx/keepassx/blob/master/src/format/KeePass1Reader.cpp#L855
+                        nIcons, nEntries, nGroups = struct.unpack('<LLL', data[:12])
+                        ipos = 12
+                        for i in range(nIcons):
+                            size = struct.unpack('<L', data[ipos:ipos+4])
+                            icon = data[ipos+4:ipos+4+size]
+                            self.icons.append(dict(id=random.getrandbits(32), data=icon))
+                            ipos += size + 4
+                        
+                        if len(data) < (ipos + (nEntries * 20)):
+                            raise ValueError("Custom icon entries truncated.")
+                        for i in range(nEntries):
+                            entryid = b2a_hex(data[ipos:ipos+16])
+                            iconid = struct.unpack('<L', data[ipos+16:ipos+16+4])
+                            if entryid in self.entries_by_id:
+                                self.entries_by_id[entryid]['icon'] = iconid
+                            ipos += 20
+                        
+                        if len(data) < (ipos + (nGroups * 8)):
+                            raise ValueError("Custom icon groups truncated.")
+                        for i in range(nEntries):
+                            groupid, iconid = struct.unpack('<L', data[ipos:ipos+4+4])
+                            if groupid in self.groups_by_id:
+                                self.groups_by_id[groupid]['icon'] = iconid
+                            ipos += 8
+                    elif entry['title'] == 'Meta-Info' and entry['username'] == 'SYSTEM' and entry['url'] == '$':
+                        # This is an unparsed metadata entry, save so we can 
+                        # parse later
+                        self.metainfo.append(entry)
                 else:
                     self.entries_by_id[entry['id']] = entry
                     entries.append(entry)
