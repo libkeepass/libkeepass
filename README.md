@@ -16,9 +16,10 @@ see requirements.txt
 KeePass 1.x support
 -------------------
 
-Currently the v3 reader only goes so far, as outputting the raw decrypted data.
-Parsing into groups and entries is missing, but probably just needs to be
-integrated from Brett Viren's work.
+The v3 reader will parse the v3 binary format and put groups into the "groups"
+attribute, and entries into the "entries" attribute. The special icon entry is
+parsed and icons can be accessed via the "icons" attribute. Other special
+entries are not parsed and seen as regular entries.
 
 Only passwords are supported.
 
@@ -90,5 +91,8 @@ For v4 support reading the original Keepass2 C# source was used as inspiration
 
 Keepass 2.x uses Salsa20 to protect data in XML. Currently puresalsa20 is used
 (http://www.tiac.net/~sw/2010/02/PureSalsa20/index.html) and included.
+
+For v3 read support, code was copied with some enhancements from WAKAYAMA
+Shirou's kptool  (see: https://github.com/shirou/kptool)
 
 Thanks to them and all others who came before are in order.
