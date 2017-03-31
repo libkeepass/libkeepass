@@ -7,12 +7,12 @@ files.
 Warning
 -------
 
-"this code makes no attempt to secure its memory"
+This code makes **NO ATTEMPT TO SECURE ITS MEMORY**
 
-Requirements
+Installation
 ------------
 
-see requirements.txt
+Use `setup.py`, e.g., `sudo python3 setup.py install`.
 
 KeePass 1.x support
 -------------------
@@ -47,10 +47,13 @@ settings in the file header and written to a stream.
 Examples
 --------
 
-    import libkeepass
+The `samples` directory contains basic samples of using `libkeepass`.
 
-    filename = "input.kdbx"
-    with libkeepass.open(filename, password='secret', keyfile='putty.exe') as kdb:
+The code below demonstrates some things you can do with `libkeepass` and a KeePass 2.x database:
+
+    import libkeepass
+    
+    with libkeepass.open('input.kdbx', password='secret') as kdb:
         # print parsed element tree as xml
         print kdb.pretty_print()
 
@@ -75,9 +78,9 @@ Examples
 Testing
 -------
 
-Make a virtualenv and install the requirements. Then run the tests script::
+Make a virtualenv and install the requirements. Then run the test script:
 
-    pip install -r requirements.txt
+    python3 setup.py install
     nosetests tests/tests.py
       or
     python -m unittest tests.tests
@@ -86,10 +89,12 @@ References
 ----------
 
 Initially Brett Viren's code was a starting point and some of his code is being
-re-used unchanged (https://github.com/brettviren/python-keepass).
+re-used unchanged (see https://github.com/brettviren/python-keepass).
 
-For v4 support reading the original Keepass2 C# source was used as inspiration
-(http://keepass.info).
+v4 support inspired by the original Keepass2 C# source (http://keepass.info)
+was added by Florian Demmer, Lukas Koell and others.
+
+Minimal Python3 support was added by Nikolay Amelichev.
 
 Keepass 2.x uses Salsa20 to protect data in XML. Currently puresalsa20 is used
 (http://www.tiac.net/~sw/2010/02/PureSalsa20/index.html) and included.

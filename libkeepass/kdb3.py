@@ -9,7 +9,7 @@ import random
 import datetime
 from binascii import * # for entry id
 
-from libkeepass.crypto import xor, sha256, aes_cbc_decrypt, twofish_cbc_decrypt
+from libkeepass.crypto import xor, sha256, aes_cbc_decrypt
 from libkeepass.crypto import transform_key, unpad
 
 from libkeepass.common import load_keyfile, stream_unpack
