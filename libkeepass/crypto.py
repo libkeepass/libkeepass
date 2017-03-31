@@ -1,13 +1,13 @@
 # -*- coding: utf-8 -*-
 import hashlib
 import struct
+from Crypto.Cipher import AES
 try:
-    from CryptoPlus.Cipher import AES, python_Twofish
+    from CryptoPlus.Cipher import python_Twofish
 except ImportError:
-    from Crypto.Cipher import AES
     class _python_Twofish(object):
             def __getattribute__(self, k):
-                raise IOError('Using pyCrypto which does not support Twofish encryption, try using CryptoPlus')
+                raise IOError("The support library for this encryption method (twofish) are not installed.  Run `pip install \'https://github.com/doegox/python-cryptoplus/tarball/master\'`")
     python_Twofish = _python_Twofish()
 
 from libkeepass.pureSalsa20 import Salsa20

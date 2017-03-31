@@ -363,3 +363,7 @@ class TestKDB3(unittest.TestCase):
 #            self.assertEquals(xml1, xml4)
 
 #            self.assertIsNotNone(kdb.pretty_print())
+
+
+if __name__ == '__main__':
+    unittest.main()
