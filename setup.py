@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
     name="libkeepass",
-    version="0.1.2",
+    version="0.2.0",
     packages=["libkeepass"],
     author="Lukas Koell",
     author_email="phpwutz@gmail.com",
@@ -14,7 +14,6 @@ setup(
     test_suite="tests",
     install_requires=[
         "lxml>=3.2.1",
-        "nose>=1.3.0",
         "pycrypto>=2.6.1",
         "colorama>=0.3.2"
     ],
