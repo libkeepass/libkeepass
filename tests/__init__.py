@@ -1,6 +1,7 @@
+import unittest
+import doctest
+
 def suite():
-    import unittest
-    import doctest
     suite = unittest.TestSuite()
     suite.addTests(doctest.DocTestSuite(helloworld))
     suite.addTests(test_helloworld.suite())

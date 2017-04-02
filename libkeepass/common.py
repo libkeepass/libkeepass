@@ -1,64 +1,69 @@
 # -*- coding: utf-8 -*-
 
+import sys
+
+IS_PYTHON_3 = sys.hexversion >= 0x3000000
+
 # file header
+
 
 class HeaderDictionary(dict):
     """
-    A dictionary on steroids for comfortable header field storage and 
+    A dictionary on steroids for comfortable header field storage and
     manipulation.
-    
+
     Header fields must be defined in the `fields` property before filling the
     dictionary with data. The `fields` property is a simple dictionary, where
     keys are field names (string) and values are field ids (int)::
-    
+
         >>> h.fields['rounds'] = 4
-    
+
     Now you can set and get values using the field id or the field name
     interchangeably::
-    
+
         >>> h[4] = 3000
         >>> print h['rounds']
         3000
         >>> h['rounds'] = 6000
         >>> print h[4]
         6000
-    
-    It is also possible to get and set data using the field name as an 
+
+    It is also possible to get and set data using the field name as an
     attribute::
-    
+
         >>> h.rounds = 9000
         >>> print h[4]
         9000
         >>> print h.rounds
         9000
-    
+
     For some fields it is more comfortable to unpack their byte value into
     a numeric or character value (eg. the transformation rounds). For those
     fields add a format string to the `fmt` dictionary. Use the field id as
     key::
-    
+
         >>> h.fmt[4] = '<q'
-    
+
     Continue setting the value as before if you have it as a number and if you
     need it as a number, get it like before. Only when you have the packed value
     use a different interface::
-    
+
         >>> h.b.rounds = '\x70\x17\x00\x00\x00\x00\x00\x00'
         >>> print h.b.rounds
         '\x70\x17\x00\x00\x00\x00\x00\x00'
         >>> print h.rounds
         6000
-    
-    The `b` (binary?) attribute is a special way to set and get data in its 
+
+    The `b` (binary?) attribute is a special way to set and get data in its
     packed format, while the usual attribute or dictionary access allows
     setting and getting a numeric value::
-    
+
         >>> h.rounds = 3000
         >>> print h.b.rounds
         '\xb8\x0b\x00\x00\x00\x00\x00\x00'
         >>> print h.rounds
         3000
-    
+
     """
     fields = {}
     fmt = {}
@@ -82,17 +87,25 @@ class HeaderDictionary(dict):
         class wrap(object):
             def __init__(self, d):
                 object.__setattr__(self, 'd', d)
+
             def __getitem__(self, key):
                 fmt = self.d.fmt.get(self.d.fields.get(key, key))
-                if fmt: return struct.pack(fmt, self.d[key])
-                else: return self.d[key]
+                if fmt:
+                    return struct.pack(fmt, self.d[key])
+                else:
+                    return self.d[key]
+
             __getattr__ = __getitem__
+
             def __setitem__(self, key, val):
                 fmt = self.d.fmt.get(self.d.fields.get(key, key))
-                if fmt: self.d[key] = struct.unpack(fmt, val)[0]
-                else: self.d[key] = val
+                if fmt:
+                    self.d[key] = struct.unpack(fmt, val)[0]
+                else:
+                    self.d[key] = val
+
             __setattr__ = __setitem__
-        
+
         if key == 'b':
             return wrap(self)
         try:
@@ -110,17 +123,18 @@ class HeaderDictionary(dict):
 # file baseclass
 
 import io
-from crypto import sha256
+from libkeepass.crypto import sha256
+
 
 class KDBFile(object):
     def __init__(self, stream=None, **credentials):
         # list of hashed credentials (pre-transformation)
         self.keys = []
         self.add_credentials(**credentials)
-        
+
         # the buffer containing the decrypted/decompressed payload from a file
         self.in_buffer = None
-        # the buffer filled with data for writing back to a file before 
+        # the buffer filled with data for writing back to a file before
         # encryption/compression
         self.out_buffer = None
         # position in the `in_buffer` where the payload begins
@@ -129,22 +143,27 @@ class KDBFile(object):
         # encryption masterkey. if this is True `in_buffer` must contain
         # clear data.
         self.opened = False
-        
+
         # the raw/basic file handle, expect it to be closed after __init__!
         if stream is not None:
-            if not isinstance(stream, io.IOBase):
-                raise TypeError('Stream does not have the buffer interface.')
             self.read_from(stream)
 
+    def _is_file(self, stream):
+        if isinstance(stream, io.IOBase):
+            return True
+        if not IS_PYTHON_3 and isinstance(stream, file):
+            return True
+        return False
+
     def read_from(self, stream):
-        if not (isinstance(stream, io.IOBase) or isinstance(stream, file)):
+        if not self._is_file(stream):
             raise TypeError('Stream does not have the buffer interface.')
         self._read_header(stream)
         self._decrypt(stream)
 
     def _read_header(self, stream):
         raise NotImplementedError('The _read_header method was not '
-            'implemented propertly.')
+                                  'implemented propertly.')
 
     def _decrypt(self, stream):
         self._make_master_key()
@@ -157,9 +176,9 @@ class KDBFile(object):
         raise NotImplementedError('The write_to() method was not implemented.')
 
     def add_credentials(self, **credentials):
-        if credentials.has_key('password'):
-            self.add_key_hash(sha256(credentials['password']))
-        if credentials.has_key('keyfile'):
+        if 'password' in credentials:
+            self.add_key_hash(sha256(credentials['password'].encode('utf-8')))
+        if 'keyfile' in credentials:
             self.add_key_hash(load_keyfile(credentials['keyfile']))
 
     def clear_credentials(self):
@@ -187,9 +206,9 @@ class KDBFile(object):
         """
         Read the decrypted and uncompressed data after the file header.
         For example, in KDB4 this would be plain, utf-8 xml.
-        
-        Note that this is the source data for the lxml.objectify element tree 
-        at `self.obj_root`. Any changes made to the parsed element tree will 
+
+        Note that this is the source data for the lxml.objectify element tree
+        at `self.obj_root`. Any changes made to the parsed element tree will
         NOT be reflected in that data stream! Use `self.pretty_print` to get
         XML output from the element tree.
         """
@@ -204,12 +223,25 @@ class KDBFile(object):
         if self.in_buffer:
             return self.in_buffer.tell()
 
+    def merge(self, other):
+        """Merges the other file into this one."""
+        if self._parse(self.obj_root.Meta.DatabaseNameChanged) < self._parse(other.obj_root):
+            self.obj_root.Meta.DatebaseName = other.obj_root.Meta.DatabaseName
+            self.obj_root.Meta.DatebaseNameChanged = other.obj_root.Meta.DatabaseNameChanged
+
+    @staticmethod
+    def _parse(date_text):
+        from datetime import datetime
+
+        return datetime.strptime(date_text, '%Y-%m-%dT%H:%M:%SZ')
+
 
 # loading keyfiles
 
 import base64
 import hashlib
 from lxml import etree
+
 
 def load_keyfile(filename):
     try:
@@ -220,6 +252,7 @@ def load_keyfile(filename):
         return load_plain_keyfile(filename)
     except:
         pass
+
 
 def load_xml_keyfile(filename):
     """
@@ -241,6 +274,7 @@ def load_xml_keyfile(filename):
         return base64.b64decode(tree.find('Key/Data').text)
     raise IOError('Could not parse XML keyfile.')
 
+
 def load_plain_keyfile(filename):
     """
     A "plain" keyfile is a file containing only the key.
@@ -258,23 +292,22 @@ def load_plain_keyfile(filename):
         return sha256(key)
     raise IOError('Could not read keyfile.')
 
-# 
+#
 
 import struct
+
 
 def stream_unpack(stream, offset, length, typecode='I'):
     if offset is not None:
         stream.seek(offset)
     data = stream.read(length)
-    return struct.unpack('<'+typecode, data)[0]
+    return struct.unpack('<' + typecode, data)[0]
+
 
 def read_signature(stream):
     sig1 = stream_unpack(stream, 0, 4)
     sig2 = stream_unpack(stream, None, 4)
-    #ver_minor = stream_unpack(stream, None, 2, 'h')
-    #ver_major = stream_unpack(stream, None, 2, 'h')
+    # ver_minor = stream_unpack(stream, None, 2, 'h')
+    # ver_major = stream_unpack(stream, None, 2, 'h')
     #return (sig1, sig2, ver_major, ver_minor)
-    return (sig1, sig2)
-
-
-
+    return sig1, sig2
