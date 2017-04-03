@@ -6,7 +6,8 @@ files.
 
 See `pykeepass`_ or `kppy`_ for higher level database access and editing.
 
-.. _`pykeepass`:: https://github.com/pschmitt/pykeepass
+.. _`pykeepass`: https://github.com/pschmitt/pykeepass
+.. _`kppy`: https://github.com/raymontag/kppy
 
 Warning
 -------
@@ -105,10 +106,10 @@ Keepass 2.x uses Salsa20 to protect data in XML. Currently `puresalsa20`_ is use
 For v3 read support, code was copied with some enhancements from WAKAYAMA
 Shirou's `kptool`_.
 
-.. _`original Keepass2 C#`:: http://keepass.info
-.. _`code`:: https://github.com/brettviren/python-keepass
-.. _`puresalsa20`:: http://www.tiac.net/~sw/2010/02/PureSalsa20/index.html
-.. _`kptool`:: https://github.com/shirou/kptool)
+.. _`original Keepass2 C#`: http://keepass.info
+.. _`code`: https://github.com/brettviren/python-keepass
+.. _`puresalsa20`: http://www.tiac.net/~sw/2010/02/PureSalsa20/index.html
+.. _`kptool`: https://github.com/shirou/kptool)
 
 Thanks to them and all others who came before are in order.
 
