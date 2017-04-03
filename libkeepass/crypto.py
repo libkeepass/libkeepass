@@ -7,7 +7,7 @@ try:
 except ImportError:
     class _python_Twofish(object):
             def __getattribute__(self, k):
-                raise IOError("The support library for this encryption method (twofish) is not installed.  Run `pip install \'https://github.com/doegox/python-cryptoplus/tarball/master\'`")
+                raise IOError("The support library for this encryption method (twofish) is not installed.  Run `pip install \'https://github.com/doegox/python-cryptoplus/tarball/python3\'`")
     python_Twofish = _python_Twofish()
 
 from libkeepass.pureSalsa20 import Salsa20
