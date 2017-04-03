@@ -345,10 +345,11 @@ class KDBXmlExtension:
         self._reset_salsa()
         self.obj_root.Meta.MemoryProtection.ProtectPassword._setText('True')
         for elem in self.obj_root.iterfind('.//Value[@Protected="False"]'):
-            etree.strip_attributes(elem, 'ProtectedValue')
-            elem.set('Protected', 'True')
-            protected_text = self._protect(elem.text)
-            elem._setText(protected_text)
+            if elem.text is not None:
+                etree.strip_attributes(elem, 'ProtectedValue')
+                elem.set('Protected', 'True')
+                protected_text = self._protect(elem.text)
+                elem._setText(protected_text)
 
     def pretty_print(self):
         """Return a serialization of the element tree."""
