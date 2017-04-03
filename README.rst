@@ -84,7 +84,7 @@ Examples
 Testing
 -------
 
-Make a virtualenv and install the requirements (or install through pip). Then run the tests script::
+Make a virtualenv and install the requirements (or install through pip). Then run the tests script
 
 .. code:: bash
 
