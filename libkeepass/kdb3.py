@@ -418,7 +418,7 @@ class KDB3Reader(KDB3File, KDBExtension):
     def __init__(self, stream=None, **credentials):
         KDB3File.__init__(self, stream, **credentials)
 
-    def read_from(self, stream):
+    def read_from(self, stream, **options):
         KDB3File.read_from(self, stream)
         # the extension requires parsed header and decrypted self.in_buffer, so
         # initialize only here
