@@ -127,7 +127,7 @@ from libkeepass.crypto import sha256
 
 
 class KDBFile(object):
-    def __init__(self, stream=None, **credentials):
+    def __init__(self, stream=None, unprotect=True, **credentials):
         # list of hashed credentials (pre-transformation)
         self.keys = []
         self.add_credentials(**credentials)
@@ -146,7 +146,7 @@ class KDBFile(object):
 
         # the raw/basic file handle, expect it to be closed after __init__!
         if stream is not None:
-            self.read_from(stream)
+            self.read_from(stream, unprotect)
 
     def _is_file(self, stream):
         if isinstance(stream, io.IOBase):
