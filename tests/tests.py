@@ -307,6 +307,28 @@ class TestKDB4(unittest.TestCase):
 
             self.assertIsNotNone(kdb.pretty_print())
 
+		# unprotect=False
+        with libkeepass.open(absfile4, password="qwer", 
+									keyfile=keyfile4, unprotect=False) as kdb:
+            self.assertIsNotNone(kdb)
+            self.assertEqual(kdb.opened, True)
+            self.assertIsInstance(kdb, libkeepass.kdb4.KDB4Reader)
+
+            # read xml
+            # Copy the value since unprotect would change it otherwise
+            xml1 = str(kdb.obj_root.Root.Group.Entry.String[1].Value) 
+            self.assertNotEqual(xml1, "Password")
+            kdb.unprotect()  # make passwords clear
+            xml2 = kdb.obj_root.Root.Group.Entry.String[1].Value.get('ProtectedValue')
+            self.assertEqual(xml1, xml2)
+            xml3 = kdb.obj_root.Root.Group.Entry.String[1].Value
+            self.assertEqual(xml3, "Password")
+            kdb.protect()  # and re-encrypt protected values again
+            xml4 = kdb.obj_root.Root.Group.Entry.String[1].Value
+            self.assertEqual(xml1, xml4)
+
+            self.assertIsNotNone(kdb.pretty_print())
+
         # twofish encryption
         with libkeepass.open(absfile6, password="qwerty") as kdb:
             self.assertIsNotNone(kdb)
