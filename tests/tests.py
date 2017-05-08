@@ -3,6 +3,7 @@ import os
 import sys
 import datetime
 import unittest
+import warnings
 
 import libkeepass
 import libkeepass.common
@@ -318,6 +319,16 @@ class TestKDB3(unittest.TestCase):
             self.assertIsNotNone(kdb)
             self.assertEqual(kdb.opened, True)
             self.assertIsInstance(kdb, libkeepass.kdb3.KDB3Reader)
+
+    def test_open_file_protected(self):
+        # old kdb file
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            with libkeepass.open(absfile2, password="asdf", unprotect=False) as kdb:
+                self.assertIsNotNone(kdb)
+            self.assertEqual(w[0].category, UserWarning)
+            self.assertTrue("KDB3 files do not support protected reading, " \
+							"the keyword will be ignored." in str(w[0].message))
 
     def test_verify_kdb3(self):
         with libkeepass.open(absfile2, password="asdf") as kdb:
