@@ -3,6 +3,7 @@ import os
 import sys
 import datetime
 import unittest
+import warnings
 
 import libkeepass
 import libkeepass.common
@@ -306,6 +307,28 @@ class TestKDB4(unittest.TestCase):
 
             self.assertIsNotNone(kdb.pretty_print())
 
+		# unprotect=False
+        with libkeepass.open(absfile4, password="qwer", 
+									keyfile=keyfile4, unprotect=False) as kdb:
+            self.assertIsNotNone(kdb)
+            self.assertEqual(kdb.opened, True)
+            self.assertIsInstance(kdb, libkeepass.kdb4.KDB4Reader)
+
+            # read xml
+            # Copy the value since unprotect would change it otherwise
+            xml1 = str(kdb.obj_root.Root.Group.Entry.String[1].Value) 
+            self.assertNotEqual(xml1, "Password")
+            kdb.unprotect()  # make passwords clear
+            xml2 = kdb.obj_root.Root.Group.Entry.String[1].Value.get('ProtectedValue')
+            self.assertEqual(xml1, xml2)
+            xml3 = kdb.obj_root.Root.Group.Entry.String[1].Value
+            self.assertEqual(xml3, "Password")
+            kdb.protect()  # and re-encrypt protected values again
+            xml4 = kdb.obj_root.Root.Group.Entry.String[1].Value
+            self.assertEqual(xml1, xml4)
+
+            self.assertIsNotNone(kdb.pretty_print())
+
         # twofish encryption
         with libkeepass.open(absfile6, password="qwerty") as kdb:
             self.assertIsNotNone(kdb)
@@ -318,6 +341,16 @@ class TestKDB3(unittest.TestCase):
             self.assertIsNotNone(kdb)
             self.assertEqual(kdb.opened, True)
             self.assertIsInstance(kdb, libkeepass.kdb3.KDB3Reader)
+
+    def test_open_file_protected(self):
+        # old kdb file
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            with libkeepass.open(absfile2, password="asdf", unprotect=False) as kdb:
+                self.assertIsNotNone(kdb)
+            self.assertEqual(w[0].category, UserWarning)
+            self.assertTrue("KDB3 files do not support protected reading, " \
+							"the keyword will be ignored." in str(w[0].message))
 
     def test_verify_kdb3(self):
         with libkeepass.open(absfile2, password="asdf") as kdb:

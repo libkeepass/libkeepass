@@ -7,6 +7,7 @@ import hashlib
 import base64
 import random
 import datetime
+import warnings
 from binascii import * # for entry id
 
 from libkeepass.crypto import xor, sha256, aes_cbc_decrypt
@@ -418,7 +419,9 @@ class KDB3Reader(KDB3File, KDBExtension):
     def __init__(self, stream=None, **credentials):
         KDB3File.__init__(self, stream, **credentials)
 
-    def read_from(self, stream):
+    def read_from(self, stream, unprotect=True):
+        if not unprotect:
+            warnings.warn("KDB3 files do not support protected reading, the keyword will be ignored.")        
         KDB3File.read_from(self, stream)
         # the extension requires parsed header and decrypted self.in_buffer, so
         # initialize only here
