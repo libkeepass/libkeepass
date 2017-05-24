@@ -59,7 +59,7 @@ Examples
    import libkeepass
 
    filename = "input.kdbx"
-   with libkeepass.open(filename, password='secret', keyfile='putty.exe') as kdb:
+   with libkeepass.open(filename, password='secret', keyfile='keyfile.key') as kdb:
        # print parsed element tree as xml
        print kdb.pretty_print()
 
@@ -82,7 +82,7 @@ Examples
            kdb.write_to(output)
            
    # Alternatively, read a kdb4 file protected
-   with libkeepass.open(filename, password='secret', keyfile='putty.exe', unprotect=False) as kdb:
+   with libkeepass.open(filename, password='secret', keyfile='keyfile.key', unprotect=False) as kdb:
        # print parsed element tree as xml
        print kdb.pretty_print()
 
