@@ -24,7 +24,7 @@ _kdb_readers = {
 }
 
 @contextmanager
-def open(filename, **credentials):
+def open(filename, mode='rb+', **credentials):
     """
     A contextmanager to open the KeePass file with `filename`. Use a `password`
     and/or `keyfile` named argument for decryption.
@@ -36,7 +36,7 @@ def open(filename, **credentials):
     """
     kdb = None
     try:
-        with io.open(filename, 'rb') as stream:
+        with io.open(filename, mode) as stream:
             signature = common.read_signature(stream)
             cls = get_kdb_reader(signature)
             kdb = cls(stream, **credentials)
