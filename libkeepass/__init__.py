@@ -36,7 +36,7 @@ def open(filename, **credentials):
     """
     kdb = None
     try:
-        with io.open(filename, 'rb') as stream:
+        with io.open(filename, mode) as stream:
             signature = libkeepass.common.read_signature(stream)
             cls = get_kdb_reader(signature)
             kdb = cls(stream, **credentials)
