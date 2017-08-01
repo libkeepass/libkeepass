@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+from __future__ import print_function
 import libkeepass
 import getpass
 import sys
@@ -16,4 +17,3 @@ try:
 except Exception as e:
     print('Could not prettyprint KeePass Database %s:\n%s' % (filename, str(e)), file=sys.stderr)
     sys.exit(2)
-
