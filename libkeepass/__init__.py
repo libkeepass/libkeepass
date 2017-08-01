@@ -18,9 +18,9 @@ import libkeepass.kdb4
 BASE_SIGNATURE = 0x9AA2D903
 
 _kdb_readers = {
-    kdb3.KDB3_SIGNATURE[1]: kdb3.KDB3Reader,
+    libkeepass.kdb3.KDB3_SIGNATURE[1]: libkeepass.kdb3.KDB3Reader,
     # 0xB54BFB66: KDB4Reader, # pre2.x may work, untested
-    kdb4.KDB4_SIGNATURE[1]: kdb4.KDB4Reader,
+    libkeepass.kdb4.KDB4_SIGNATURE[1]: libkeepass.kdb4.KDB4Reader,
 }
 
 @contextmanager
@@ -37,7 +37,7 @@ def open(filename, mode='rb+', **credentials):
     kdb = None
     try:
         with io.open(filename, mode) as stream:
-            signature = common.read_signature(stream)
+            signature = libkeepass.common.read_signature(stream)
             cls = get_kdb_reader(signature)
             kdb = cls(stream, **credentials)
             yield kdb
