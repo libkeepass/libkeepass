@@ -90,7 +90,7 @@ class KDB4File(KDBFile):
         
         :arg stream: A writeable file-like object or IO buffer.
         """
-        if not (isinstance(stream, io.IOBase) or isinstance(stream, file)):
+        if not _is_file(stream):
             raise TypeError('Stream does not have the buffer interface.')
 
         self._write_header(stream)
