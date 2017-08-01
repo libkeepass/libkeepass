@@ -24,7 +24,7 @@ _kdb_readers = {
 }
 
 @contextmanager
-def open(filename, **credentials):
+def open(filename, mode='rb+', **credentials):
     """
     A contextmanager to open the KeePass file with `filename`. Use a `password`
     and/or `keyfile` named argument for decryption.
