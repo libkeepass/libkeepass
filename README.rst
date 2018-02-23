@@ -17,9 +17,10 @@ This code makes no attempt to secure its memory.
 Dependencies
 -------------
 
-- pycrypto
+- `pycryptodome`_
 - lxml
-- CryptoPlus (optional - adds twofish encryption support for v1 databases)
+
+.. _`pycryptodome`: https://github.com/Legrandin/pycryptodome
 
 KeePass 1.x support
 -------------------

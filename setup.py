@@ -14,7 +14,7 @@ setup(
     test_suite="tests",
     install_requires=[
         "lxml>=3.2.1",
-        "pycrypto>=2.6.1",
+        "pycryptodome>=3.4.11",
         "colorama>=0.3.2"
     ],
     classifiers=[
