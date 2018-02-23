@@ -2,14 +2,6 @@
 import hashlib
 import struct
 from Crypto.Cipher import AES
-try:
-    from CryptoPlus.Cipher import python_Twofish
-except ImportError:
-    class _python_Twofish(object):
-            def __getattribute__(self, k):
-                raise IOError("The support library for this encryption method (twofish) is not installed.  Run `pip install \'https://github.com/doegox/python-cryptoplus/tarball/python3\'`")
-    python_Twofish = _python_Twofish()
-
 from libkeepass.pureSalsa20 import Salsa20
 
 AES_BLOCK_SIZE = 16
@@ -40,18 +32,6 @@ def aes_cbc_decrypt(data, key, enc_iv):
 def aes_cbc_encrypt(data, key, enc_iv):
     """Encrypt and return `data` with AES CBC."""
     cipher = AES.new(key, AES.MODE_CBC, enc_iv)
-    return cipher.encrypt(data)
-
-
-def twofish_cbc_decrypt(data, key, enc_iv):
-    """Decrypt and return `data` with Twofish CBC."""
-    cipher = python_Twofish.new(key, python_Twofish.MODE_CBC, enc_iv)
-    return cipher.decrypt(data)
-
-
-def twofish_cbc_encrypt(data, key, enc_iv):
-    """Encrypt and return `data` with Twofish CBC."""
-    cipher = python_Twofish.new(key, python_Twofish.MODE_CBC, enc_iv)
     return cipher.encrypt(data)
 
 
