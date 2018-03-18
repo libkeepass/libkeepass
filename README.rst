@@ -17,8 +17,11 @@ This code makes no attempt to secure its memory.
 Dependencies
 -------------
 
-- pycrypto
+- `pycryptodome`_
 - lxml
+
+.. _`pycryptodome`: https://github.com/Legrandin/pycryptodome
+
 
 KeePass 1.x support
 -------------------
