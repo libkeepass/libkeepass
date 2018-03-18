@@ -19,7 +19,6 @@ Dependencies
 
 - pycrypto
 - lxml
-- CryptoPlus (optional - adds twofish encryption support for v1 databases)
 
 KeePass 1.x support
 -------------------
@@ -32,6 +31,8 @@ entries are not parsed and seen as regular entries.
 Only passwords are supported.
 
 No write support.
+
+No Twofish encryption support.
 
 KeePass 2.x support
 -------------------
@@ -51,7 +52,8 @@ There is basic "save as" write support. When writing the KeePass2 file, the
 element tree is protected, serialized, compressed and encrypted according to the
 settings in the file header and written to a stream.
 
-Currently the ChaCha20 encryption algorithm and Argon2 key derivation algorithm are unsupported.
+Currently the Twofish, the ChaCha20 encryption algorithm and Argon2 key
+derivation algorithm are unsupported.
 
 Examples
 --------

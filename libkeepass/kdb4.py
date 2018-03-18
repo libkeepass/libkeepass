@@ -9,7 +9,6 @@ import base64
 import codecs
 
 from libkeepass.crypto import xor, sha256, aes_cbc_decrypt, aes_cbc_encrypt
-from libkeepass.crypto import twofish_cbc_decrypt, twofish_cbc_encrypt
 from libkeepass.crypto import transform_key, pad, unpad
 
 from libkeepass.common import load_keyfile, stream_unpack
@@ -198,9 +197,8 @@ class KDB4File(KDBFile):
                                    self.header.EncryptionIV)
             data = unpad(data)
         elif ciphername == 'Twofish':
-            data = twofish_cbc_decrypt(stream.read(), self.master_key,
-                                   self.header.EncryptionIV)
-            data = unpad(data)
+            # TODO next release - remove this elif and Twofish from ciphers
+            raise IOError('Twofish encryption is no longer supported by libkeepass')
         else:
             raise IOError('Unsupported decryption type: %s'%codecs.encode(ciphername, 'hex'))
 
@@ -241,9 +239,8 @@ class KDB4File(KDBFile):
             self.out_buffer = aes_cbc_encrypt(data, self.master_key,
                                               self.header.EncryptionIV)
         elif ciphername == 'Twofish':
-            data = pad(self.out_buffer.read())
-            self.out_buffer = twofish_cbc_encrypt(data, self.master_key,
-                                                  self.header.EncryptionIV)
+            # TODO next release - remove this elif and Twofish from ciphers
+            raise IOError('Twofish encryption is no longer supported by libkeepass')
         else:
             raise IOError('Unsupported encryption type: %s'%codecs.encode(ciphername, 'hex'))
 

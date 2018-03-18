@@ -94,9 +94,8 @@ class KDB3File(KDBFile):
                                self.header.EncryptionIV)
             data = unpad(data)
         elif self.header.encryption_flags[self.header.Flags-1] == 'Twofish':
-            data = twofish_cbc_decrypt(stream.read(), self.master_key,
-                               self.header.EncryptionIV)
-            data = unpad(data)
+            # TODO next release - remove this elif and Twofish from encryption_flags
+            raise IOError('Twofish encryption is no longer supported by libkeepass')
         else:
             raise IOError('Unsupported encryption type: %s'%self.header.encryption_flags.get(self.header['Flags']-1, self.header['Flags']-1))
 
