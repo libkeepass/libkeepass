@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
     name="libkeepass",
-    version="0.2.0",
+    version="0.3.0",
     packages=["libkeepass"],
     author="Lukas Koell",
     author_email="phpwutz@gmail.com",
