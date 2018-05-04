@@ -40,6 +40,7 @@ def unpad(data):
 
 
 def pad(s):
+    """Add PKCS7 style padding"""
     n = AES_BLOCK_SIZE - len(s) % AES_BLOCK_SIZE
     return s + n * struct.pack('b', n)
 
