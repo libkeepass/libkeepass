@@ -3,6 +3,7 @@ import hashlib
 import struct
 from Crypto.Cipher import AES
 from libkeepass.pureSalsa20 import Salsa20
+from libkeepass.twofish import Twofish
 
 AES_BLOCK_SIZE = 16
 
@@ -32,6 +33,18 @@ def aes_cbc_decrypt(data, key, enc_iv):
 def aes_cbc_encrypt(data, key, enc_iv):
     """Encrypt and return `data` with AES CBC."""
     cipher = AES.new(key, AES.MODE_CBC, enc_iv)
+    return cipher.encrypt(data)
+
+
+def twofish_cbc_decrypt(data, key, enc_iv):
+    """Decrypt and return `data` with Twofish CBC."""
+    cipher = Twofish.new(key, Twofish.MODE_CBC, enc_iv)
+    return cipher.decrypt(data)
+
+
+def twofish_cbc_encrypt(data, key, enc_iv):
+    """Encrypt and return `data` with Twofish CBC."""
+    cipher = Twofish.new(key, Twofish.MODE_CBC, enc_iv)
     return cipher.encrypt(data)
 
 

@@ -10,7 +10,7 @@ import datetime
 import warnings
 from binascii import * # for entry id
 
-from libkeepass.crypto import xor, sha256, aes_cbc_decrypt
+from libkeepass.crypto import xor, sha256, aes_cbc_decrypt, twofish_cbc_decrypt
 from libkeepass.crypto import transform_key, unpad
 
 from libkeepass.common import load_keyfile, stream_unpack
@@ -94,8 +94,9 @@ class KDB3File(KDBFile):
                                self.header.EncryptionIV)
             data = unpad(data)
         elif self.header.encryption_flags[self.header.Flags-1] == 'Twofish':
-            # TODO next release - remove this elif and Twofish from encryption_flags
-            raise IOError('Twofish encryption is no longer supported by libkeepass')
+            data = twofish_cbc_decrypt(stream.read(), self.master_key,
+                               self.header.EncryptionIV)
+            data = unpad(data)
         else:
             raise IOError('Unsupported encryption type: %s'%self.header.encryption_flags.get(self.header['Flags']-1, self.header['Flags']-1))
 
