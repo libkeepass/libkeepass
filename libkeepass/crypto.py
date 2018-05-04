@@ -1,8 +1,7 @@
 # -*- coding: utf-8 -*-
 import hashlib
 import struct
-from Crypto.Cipher import AES
-from libkeepass.pureSalsa20 import Salsa20
+from Crypto.Cipher import AES, Salsa20
 
 AES_BLOCK_SIZE = 16
 

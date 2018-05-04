@@ -296,11 +296,7 @@ class KDBXmlExtension:
     """
 
     def __init__(self, unprotect=True):
-        self._salsa_buffer = bytearray()
-        self.salsa = Salsa20(
-            sha256(self.header.ProtectedStreamKey),
-            KDB4_SALSA20_IV)
-
+        self._reset_salsa()
         self.in_buffer.seek(0)
         self.tree = objectify.parse(self.in_buffer)
         objectify.deannotate(self.tree, pytype=True, cleanup_namespaces=True)
@@ -360,9 +356,11 @@ class KDBXmlExtension:
             self.out_buffer = io.BytesIO(self.pretty_print())
 
     def _reset_salsa(self):
-        """Clear the salsa buffer and reset algorithm counter to 0."""
+        """Clear the salsa buffer and reset algorithm."""
         self._salsa_buffer = bytearray()
-        self.salsa.setCounter(0)
+        self.salsa = Salsa20.new(
+            sha256(self.header.ProtectedStreamKey),
+            KDB4_SALSA20_IV)
 
     def _get_salsa(self, length):
         """
@@ -370,7 +368,7 @@ class KDBXmlExtension:
         requested `length`.
         """
         while length > len(self._salsa_buffer):
-            new_salsa = self.salsa.encryptBytes(bytearray(64))
+            new_salsa = self.salsa.encrypt(bytearray(64))
             self._salsa_buffer.extend(new_salsa)
         nacho = self._salsa_buffer[:length]
         del self._salsa_buffer[:length]
