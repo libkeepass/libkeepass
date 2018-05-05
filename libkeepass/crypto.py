@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 import hashlib
 import struct
-from Crypto.Cipher import AES, Salsa20
+from Crypto.Cipher import AES, ChaCha20, Salsa20
 from libkeepass.twofish import Twofish
 
 AES_BLOCK_SIZE = 16
@@ -32,6 +32,18 @@ def aes_cbc_decrypt(data, key, enc_iv):
 def aes_cbc_encrypt(data, key, enc_iv):
     """Encrypt and return `data` with AES CBC."""
     cipher = AES.new(key, AES.MODE_CBC, enc_iv)
+    return cipher.encrypt(data)
+
+
+def chacha20_cbc_decrypt(data, key, enc_iv):
+    """Decrypt and return `data` with ChaCha20."""
+    cipher = ChaCha20.new(key=key, nonce=enc_iv)
+    return cipher.decrypt(data)
+
+
+def chacha20_cbc_encrypt(data, key, enc_iv):
+    """Encrypt and return `data` with ChaCha20."""
+    cipher = ChaCha20.new(key=key, nonce=enc_iv)
     return cipher.encrypt(data)
 
 
