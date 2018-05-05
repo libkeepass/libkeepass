@@ -16,7 +16,7 @@ sys.path.append(os.path.abspath("."))
 sys.path.append(os.path.abspath(".."))
 
 from libkeepass.crypto import sha256, transform_key, xor, pad
-from libkeepass.crypto import aes_cbc_decrypt
+from libkeepass.crypto import aes_cbc_decrypt, twofish_cbc_decrypt, twofish_cbc_encrypt
 from libkeepass.crypto import AES_BLOCK_SIZE
 
 
@@ -43,6 +43,17 @@ class TextCrypto(unittest.TestCase):
         self.assertEqual(aes_cbc_decrypt(b'datamustbe16byte', sha256(b'c'),
                                           b'ivmustbe16bytesl'),
                           b'\x06\x91 \xd9\\\xd8\x14\xa0\xdc\xd7\x82\xa0\x92\xfb\xe8l')
+
+    def test_twofish_cbc_decrypt(self):
+        self.assertEqual(twofish_cbc_encrypt(b'datamustbe16byte', sha256(b'b'),
+                                              b'ivmustbe16bytesl'),
+                          b'\xd4^&`\xe1j\xfd{\xeb\x04{\x90f\xed\xebi')
+        self.assertEqual(twofish_cbc_encrypt(b'datamustbe16byte', sha256(b'c'),
+                                              b'ivmustbe16bytesl'),
+                          b'\xb3\x86\xbe\x0ficZW\x92P\xeb\x17\xa8\xa8\xac\xe8')
+        self.assertEqual(twofish_cbc_decrypt(b'K\x07q\xad\xd0\x8d\xb9\x0f\x15\xef\x87\x089\xc3\x83\x9c',
+                                              sha256(b'd'), b'ivmustbe16bytesl'),
+                          b'datamustbe16byte')
 
     def test_xor(self):
         self.assertEqual(xor(b'', b''), b'')
@@ -318,11 +329,10 @@ class TestKDB4(unittest.TestCase):
 
             self.assertIsNotNone(kdb.pretty_print())
 
-        # twofish encryption no longer supported
-        with self.assertRaises(IOError,
-                               msg="Twofish encryption is no longer supported by libkeepass"):
-            with libkeepass.open(absfile6, password="qwerty") as kdb:
-                pass
+        # twofish encryption
+        with libkeepass.open(absfile6, password="qwerty") as kdb:
+            self.assertIsNotNone(kdb)
+            self.assertEqual(kdb.opened, True)
 
 
 class TestKDB3(unittest.TestCase):
