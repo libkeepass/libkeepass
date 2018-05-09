@@ -53,7 +53,14 @@ There is basic "save as" write support. When writing the KeePass2 file, the
 element tree is protected, serialized, compressed and encrypted according to the
 settings in the file header and written to a stream.
 
-Currently the ChaCha20 encryption algorithm and Argon2 key derivation algorithm
+ChaCha20 database encryption is supported.  However its worth noting that
+pycryptodome version 3.6.1 and earlier does not support 12-bytes nonces for
+ChaCha20, which we require.  Future versions of pycryptodome do support 12-byte
+nonces.  So if you're using 3.6.1 or earlier, decrypting a ChaCha20 encrypted
+database will raise an exception.  Decrypting AES and Twofish encrypted
+databases will work as normal.
+
+Currently the Argon2 key derivation algorithm and ChaCha20 protected passwords
 are unsupported.
 
 Examples
