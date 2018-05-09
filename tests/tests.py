@@ -18,6 +18,7 @@ sys.path.append(os.path.abspath(".."))
 from libkeepass.crypto import sha256, transform_key, xor, pad
 from libkeepass.crypto import aes_cbc_decrypt
 from libkeepass.crypto import AES_BLOCK_SIZE
+from libkeepass.crypto import Salsa20
 
 
 class TextCrypto(unittest.TestCase):
@@ -35,6 +36,24 @@ class TextCrypto(unittest.TestCase):
         self.assertEqual(transform_key(sha256(b'a'), sha256(b'b'), 2000),
                           b'@\xe5Y\x98\xf7\x97$\x0b\x91!\xbefX\xe8\xb6\xbb\t\xefX>\xb3E\x85'
                           b'\xedz\x15\x9c\x96\x03K\x8a\xa1')
+
+    def test_salsa20_encrypt(self):
+        KDB4_SALSA20_IV = bytes(bytearray.fromhex('e830094b97205d2a'))
+        salsa = Salsa20.new(b'keysmustbe16byte', KDB4_SALSA20_IV)
+        
+        new_salsa = salsa.encrypt(bytearray(64))
+        self.assertEqual(new_salsa,
+                         b"+Jb\xf2\x80\x14\xd9\xbe\xcc01\x08\xfd\xfcs\xbd\xa48"
+                         b"!\x13\xd6.x\xe1)D\x1d\x16\xc0\xe6\x8aP\xd7N]3\xae"
+                         b"\xf4\xa9\x82\xa5^B\x03'\xb8\x87\x8e`\x19u\x0f\x10"
+                         b"\xb0\xbf\xa7h[\xa0\x18-i\xc1\xf4")
+        
+        new_salsa = salsa.encrypt(bytearray(64))
+        self.assertEqual(new_salsa,
+                         b"\xa9\x0b\xda'\x9c\xcc:\xc4o\xf4`\xfeq*\x05\x1eP\xf1"
+                         b"nK\xf4m\xa6\x1d\xa4t\xfb\x91S\x7f\x10\xadp\xad\xb7"
+                         b"?\xd2=]\x96\x13\x04\\\x05k\x08\xe8\xf3X\x9a\xb4\xe7"
+                         b"\xc6\xdb\x88\t\x94u\xee\x04\xd2\xc2\x00\xc8")
 
     def test_aes_cbc_decrypt(self):
         self.assertEqual(aes_cbc_decrypt(b'datamustbe16byte', sha256(b'b'),
