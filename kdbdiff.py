@@ -85,17 +85,17 @@ class KXML4Differ(object):
         grps2 = g2.findall('./Group')
         kfunc = lambda el: el.find('./Name').text
         grps_sub, grps_com, grps_add = kp_partition_els(grps1, grps2, kfunc)
-        grps_com.sort(key=lambda (el1, el2): kfunc)
+        grps_com.sort(key=lambda elpair: kfunc(elpair[0]))
         
         bwrite_title = False
         if grps_sub or grps_add:
-            print '/'.join(path)+':'
+            print('/'.join(path)+':')
             bwrite_title = True
             for gn in sorted(grps_sub, key=kfunc):
-                print '-@'+kfunc(gn)
+                print('-@'+kfunc(gn))
             for gn in sorted(grps_add, key=kfunc):
-                print '+@'+kfunc(gn)
-            print
+                print('+@'+kfunc(gn))
+            print()
         
         ents1 = g1.findall('./Entry')
         ents2 = g2.findall('./Entry')
@@ -106,23 +106,24 @@ class KXML4Differ(object):
         printed = bool(ents_sub or ents_add)
         if ents_sub or ents_add:
             if not bwrite_title:
-                print '/'.join(path)+':'
+                print('/'.join(path)+':')
                 bwrite_title = True
             for en in sorted(ents_sub, key=kfunc):
-                print '-'+kfunc(en)+(self.args.passwords and ' < %r >'%pfunc(en) or '')
+                print('-'+kfunc(en)+(self.args.passwords and ' < %r >'%pfunc(en) or ''))
             for en in sorted(ents_add, key=kfunc):
-                print '+'+kfunc(en)+(self.args.passwords and ' < %r >'%pfunc(en) or '')
+                print('+'+kfunc(en)+(self.args.passwords and ' < %r >'%pfunc(en) or ''))
         for en1, en2 in ents_com:
-            if pfunc(en1) != pfunc(en2):
+            p1, p2 = pfunc(en1), pfunc(en2)
+            if p1 != p2:
                 if not bwrite_title:
-                    print '/'.join(path)+':'
+                    print('/'.join(path)+':')
                     bwrite_title = True
-                print 'p'+kfunc(en1)
+                print('p'+kfunc(en1))
                 if self.args.passwords:
-                    print 'p < %r != %r >'%(pfunc(en1), pfunc(en2))
+                    print('p < %r != %r >'%(p1, p2))
                 printed = True
         if printed:
-            print
+            print()
         
         for grp1, grp2 in grps_com:
             self.diff_xml_group(grp1, grp2, path[:] + [grp1.find('./Name').text])
