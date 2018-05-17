@@ -26,7 +26,6 @@ _kdb_readers = {
 class UnknownKDBError(IOError): pass
 
 
-@contextmanager
 def open(filename, mode='rb+', **credentials):
     """
     A contextmanager to open the KeePass file with `filename`. Use a `password`
@@ -41,8 +40,7 @@ def open(filename, mode='rb+', **credentials):
     try:
         with io.open(filename, mode) as stream:
             kdb = open_stream(stream, **credentials)
-            yield kdb
-            kdb.close()
+            return kdb
     except:
         if kdb:
             kdb.close()

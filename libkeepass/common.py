@@ -148,6 +148,12 @@ class KDBFile(object):
         if stream is not None:
             self.read_from(stream, unprotect)
 
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        self.close()
+
     def _is_file(self, stream):
         if isinstance(stream, io.IOBase):
             return True
