@@ -2,6 +2,7 @@
 import hashlib
 import struct
 from Crypto.Cipher import AES, Salsa20
+from libkeepass.twofish import Twofish
 
 AES_BLOCK_SIZE = 16
 
@@ -34,11 +35,24 @@ def aes_cbc_encrypt(data, key, enc_iv):
     return cipher.encrypt(data)
 
 
+def twofish_cbc_decrypt(data, key, enc_iv):
+    """Decrypt and return `data` with Twofish CBC."""
+    cipher = Twofish.new(key, Twofish.MODE_CBC, enc_iv)
+    return cipher.decrypt(data)
+
+
+def twofish_cbc_encrypt(data, key, enc_iv):
+    """Encrypt and return `data` with Twofish CBC."""
+    cipher = Twofish.new(key, Twofish.MODE_CBC, enc_iv)
+    return cipher.encrypt(data)
+
+
 def unpad(data):
     return data[:len(data) - bytearray(data)[-1]]
 
 
 def pad(s):
+    """Add PKCS7 style padding"""
     n = AES_BLOCK_SIZE - len(s) % AES_BLOCK_SIZE
     return s + n * struct.pack('b', n)
 
