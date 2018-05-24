@@ -208,22 +208,22 @@ class TestCommon(unittest.TestCase):
         # assert False
 
 # created with KeePassX 0.4.3
-absfile2 = os.path.abspath('tests/sample7_kpx.kdb')
+absfile2 = os.path.abspath('tests/data/sample7_kpx.kdb')
 # created with KeePass 2.19 on linux
-absfile1 = os.path.abspath('tests/sample1.kdbx')
-absfile3 = os.path.abspath('tests/sample2.kdbx')
-keyfile3 = os.path.abspath('tests/sample2_keyfile.key')
-absfile4 = os.path.abspath('tests/sample3.kdbx')
-keyfile4 = os.path.abspath('tests/sample3_keyfile.exe')
-absfile5 = os.path.abspath('tests/sample4.kdbx')
-keyfile5 = os.path.abspath('tests/sample3_keyfile.exe')
+absfile1 = os.path.abspath('tests/data/sample1.kdbx')
+absfile3 = os.path.abspath('tests/data/sample2.kdbx')
+keyfile3 = os.path.abspath('tests/data/sample2_keyfile.key')
+absfile4 = os.path.abspath('tests/data/sample3.kdbx')
+keyfile4 = os.path.abspath('tests/data/sample3_keyfile.exe')
+absfile5 = os.path.abspath('tests/data/sample4.kdbx')
+keyfile5 = os.path.abspath('tests/data/sample3_keyfile.exe')
 # created with KeePass 2.32 on linux encrypted with twofish
-absfile6 = os.path.abspath('tests/sample8_twofish.kdbx')
+absfile6 = os.path.abspath('tests/data/sample8_twofish.kdbx')
 # created with KeePass 2.38 on linux encrypted with chacha20
-absfile7 = os.path.abspath('tests/sample9_chacha20.kdbx')
+absfile7 = os.path.abspath('tests/data/sample9_chacha20.kdbx')
 
-output1 = os.path.abspath('tests/output1.kdbx')
-output4 = os.path.abspath('tests/output4.kdbx')
+output1 = os.path.abspath('tests/data/output1.kdbx')
+output4 = os.path.abspath('tests/data/output4.kdbx')
 
 
 class TestKDB4(unittest.TestCase):
