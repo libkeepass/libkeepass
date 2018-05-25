@@ -169,7 +169,7 @@ class KDB4Merge(KDBMerge):
                     changes.append((gesrc.tag, '', lxml.etree.tostring(gesrc)))
                     continue
                 
-                if len(gesrc) > 0 or len(gedest) > 0:
+                if len(gesrc.getchildren()) > 0 or len(gedest.getchildren()) > 0:
                     # If either subelements have subelements themselves...
                     changes.append((gesrc.tag, lxml.etree.tostring(gedest), lxml.etree.tostring(gesrc)))
                     gdest.replace(gedest, deepcopy(gesrc))
@@ -331,7 +331,7 @@ class KDB4Merge(KDBMerge):
             # If element doesn't exist, append a copy
             new_elems.append(deepcopy(src))
             changes.append((src.tag, '', lxml.etree.tostring(src)))
-        elif len(src) > 0 or len(dest) > 0:
+        elif len(src.getchildren()) > 0 or len(dest.getchildren()) > 0:
             # If either subelements have subelements themselves...
             changes.append((src.tag, lxml.etree.tostring(dest), lxml.etree.tostring(src)))
             pdest.replace(dest, deepcopy(src))
@@ -343,7 +343,7 @@ class KDB4Merge(KDBMerge):
     
     def _merge_history(self, dest, src_hist):
         "Merge src history element into dest"
-        if len(src_hist) == 0:
+        if src_hist is None or len(src_hist.getchildren()) == 0:
             # Nothing to merge
             return
         
