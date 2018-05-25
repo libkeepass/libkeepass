@@ -357,6 +357,13 @@ class KDBXmlExtension:
                 protected_text = self._protect(elem.text)
                 elem._setText(protected_text)
 
+    def is_protected(self):
+        """Return True if passwords are protected."""
+        protected = self.obj_root.Meta.MemoryProtection.ProtectPassword.text == 'True'
+        if protected:
+            assert len(self.obj_root.findall('.//Value[@Protected="False"]')) == 0
+        return protected
+
     def pretty_print(self):
         """Return a serialization of the element tree."""
         return etree.tostring(self.obj_root, pretty_print=True,

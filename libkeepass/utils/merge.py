@@ -62,10 +62,24 @@ class KDB4Merge(KDBMerge):
         "Merge a KDB4 databases"
         kdb_dest, kdb_src = self.kdb_dest, self.kdb_src
         
+        # databases must be unprotected to do a merge
+        protected_dest = kdb_dest.is_protected()
+        protected_src = kdb_src.is_protected()
+        if protected_dest:
+            kdb_dest.unprotect()
+        if protected_src:
+            kdb_src.unprotect()
+        
         if self.metadata:
             self._merge_metadata(kdb_dest.obj_root.Meta, kdb_src.obj_root.Meta)
         
         self._merge_roots(kdb_dest.obj_root.Root, kdb_src.obj_root.Root)
+        
+        # Set protected status back to the way it was before
+        if protected_dest:
+            kdb_dest.protect()
+        if protected_src:
+            kdb_src.protect()
 
     def _merge_metadata(self, mdest, msrc):
         #~ <Generator>KeePass</Generator>
