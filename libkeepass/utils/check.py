@@ -10,6 +10,53 @@ class KDBEqualError(object):
         self.msg = msg
 
 
+def elem_tree_nequal(el_a, el_b, ignore_elements=tuple(), ignore_attrs=True):
+    "Return False if element trees are equal ignoring reordering, otherwise an return an error."
+    error = None
+    
+    if (el_a.text or '').strip() != (el_b.text or '').strip():
+        error = KDBEqualError(el_a, el_b, msg="Text of element differ: %s != %s"%(el_a.text, el_b.text))
+        return error
+    
+    if not ignore_attrs and el_a.attrib != el_b.attrib:
+        error = KDBEqualError(el_a, el_b, msg="Attributes differ: %s != %s"%(el_a.attrib, el_b.attrib))
+        return error
+    
+    chld_as = el_a.getchildren()
+    
+    tagmap = {}
+    for chld_a in chld_as:
+        if chld_a.tag in ignore_elements:
+            continue
+        
+        if chld_a.tag not in tagmap:
+            chld_bs = el_b.findall('./%s'%chld_a.tag)
+            tagmap.setdefault(chld_a.tag, chld_bs)
+        
+        chld_bs = tagmap[chld_a.tag]
+        for i, chld_b in enumerate(chld_bs):
+            if not elem_tree_nequal(chld_a, chld_b, ignore_elements=ignore_elements, ignore_attrs=ignore_attrs):
+                chld_bs.pop(i)
+                break
+        else:
+            error = KDBEqualError(chld_a, el_b, msg="Did not find matching %s in %s on right side"%(chld_a.tag, el_b.tag))
+            return error
+    else:
+        # If any values left in tagmap, then there were elements in B that
+        # were not in A, so return False.
+        any_left = any(filter(lambda v: bool(v), tagmap.values()))
+        if any_left:
+            error = KDBEqualError(any_left, el_b, msg="Extra elements on the left side. {%s}"%(any_left))
+            return error
+    
+    return False
+
+
+def elem_tree_equal(el_a, el_b, **kwargs):
+    "Return True if element trees are equal ignoring reordering."
+    return not elem_tree_nequal(el_a, el_b, **kwargs)
+
+
 class KDBEqual(object):
     def __init__(self, metadata=False, ignore_times=False, history=False,
                  deleted_objects=True, ignore_attrs=True):
@@ -140,40 +187,10 @@ class KDBEqual(object):
 
     def elem_tree_equal(self, el_a, el_b, ignore_elements=tuple()):
         "Return True if element trees are equal ignoring reordering."
-        if (el_a.text or '').strip() != (el_b.text or '').strip():
+        ret = elem_tree_nequal(el_a, el_b, ignore_elements=ignore_elements, ignore_attrs=self.ignore_attrs)
+        if ret:
+            self.error = ret
             return False
-        
-        if not self.ignore_attrs and el_a.attrib != el_b.attrib:
-            self.error = KDBEqualError(el_a, el_b, msg="Attributes differ: %s != %s"%(el_a.attrib, el_b.attrib))
-            return False
-        
-        chld_as = el_a.getchildren()
-        
-        tagmap = {}
-        for chld_a in chld_as:
-            if chld_a.tag in ignore_elements:
-                continue
-            
-            if chld_a.tag not in tagmap:
-                chld_bs = el_b.findall('./%s'%chld_a.tag)
-                tagmap.setdefault(chld_a.tag, chld_bs)
-            
-            chld_bs = tagmap[chld_a.tag]
-            for i, chld_b in enumerate(chld_bs):
-                if self.elem_tree_equal(chld_a, chld_b, ignore_elements=ignore_elements):
-                    chld_bs.pop(i)
-                    break
-            else:
-                self.error = KDBEqualError(chld_a, el_b, msg="Did not find %s in %s on right side"%(chld_a.tag, el_b.tag))
-                return False
-        else:
-            # If any values left in tagmap, then there were elements in B that
-            # were not in A, so return False.
-            any_left = any(filter(lambda v: bool(v), tagmap.values()))
-            if any_left:
-                self.error = KDBEqualError(any_left, el_b, msg="Extra elements on the left side. {%s}"%(any_left))
-                return False
-        
         return True
 
 
