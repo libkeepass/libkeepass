@@ -153,6 +153,14 @@ class KDB4Merge(KDBMerge):
         if gdest.find('./Times/LastModificationTime'):
             do_merge = self._parse_ts(gdest.Times.LastModificationTime) < \
                        self._parse_ts(gsrc.Times.LastModificationTime)
+            
+            # Still should copy Times if modification dates are the same
+            # because last access time and usage count could be different.
+            if (self._parse_ts(gdest.Times.LastModificationTime) == \
+                self._parse_ts(gsrc.Times.LastModificationTime)) and \
+               (self._parse_ts(gdest.Times.LastAccessTime) < \
+                self._parse_ts(gsrc.Times.LastAccessTime)):
+                gdest.Times = deepcopy(gsrc.Times)
         
         if do_merge:
             changes = []
@@ -314,6 +322,12 @@ class KDB4Merge(KDBMerge):
                 for tag, cdest, csrc in changes:
                     if cdest != csrc:
                         print("  %s: '%s' <-- '%s'"%(tag, cdest, csrc))
+        elif cmp_lastmod == 0:
+            # Still should copy Times if access date is newer because
+            # last access time and usage count could be different.
+            if self._parse_ts(edest.Times.LastAccessTime) < \
+               self._parse_ts(esrc.Times.LastAccessTime):
+                edest.Times = deepcopy(esrc.Times)
         
         # Always merge history
         self._merge_history(edest, esrc.History)
