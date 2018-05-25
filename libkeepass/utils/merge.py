@@ -266,8 +266,6 @@ class KDB4Merge(KDBMerge):
                 if eesrc.tag == 'String':
                     # Need to find String element with matching Key text
                     kvs = edest.findall("./String[Key='%s']"%eesrc.Key.text)
-                    # filter out matches from History entries
-                    kvs = list(filter(lambda e: e.getparent().getparent().tag == 'History', kvs))
                     assert len(kvs) <= 1, (edest.UUID.text, eesrc.Key.text, kvs)
                     if len(kvs) == 0:
                         # not in dest, so add it
