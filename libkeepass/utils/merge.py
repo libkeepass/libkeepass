@@ -379,6 +379,65 @@ class KDB4Merge(KDBMerge):
                     pdhist = pdhist.getnext()
                     pshist = pshist.getnext()
     
+    def _merge_deleted_objects(self, rdest, rsrc):
+        "Merge src deleted objects element into dest"
+        dodest = rdest.find("./DeletedObjects")
+        dosrc = rsrc.find("./DeletedObjects")
+        
+        if dosrc is None:
+            # No DeletedObjects element in source, so do nothing because we
+            # assume that objects referenced in DeletedObjects have already
+            # been deleted in the kdb they originate from
+            return
+        
+        if dodest is None:
+            dodest = rdest.makeelement('DeletedObjects')
+            rdest.append(dodest)
+        
+        dodest_uuids = {}
+        dosrc_uuids = {}
+        
+        for do in dodest.getchildren():
+            dodest_uuids[do.UUID.text] = do
+        
+        for do in dosrc.getchildren():
+            if do.UUID.text in dodest_uuids:
+                # Source deleted object exists in dest, so skip it
+                if self._parse_ts(dodest_uuids[do.UUID.text].DeletionTime) < \
+                   self._parse_ts(do.DeletionTime):
+                    # Keep the most recent deletion time...
+                    dodest_uuids[do.UUID.text].DeletionTime = do.DeletionTime
+                continue
+            
+            # For each deleted objects in source that is not in dest, add
+            # to dest.
+            dodest.append(deepcopy(do))
+            if self.debug:
+                print("Adding deleted object '{}' at time {}"% \
+                      (do.UUID.text, do.DeletionTime.text))
+            
+            # Check if the tree has any elements with UUIDs matching a deleted
+            # UUID.
+            del_uuids = [u for u in rdest.findall(".//*[UUID='%s']"%do.UUID.text)
+                           if u.getparent().tag != 'History']
+            assert len(del_uuids) in (1, 2), del_uuids
+            
+            if len(del_uuids) > 1:
+                del_el = del_uuids[0]
+                if del_uuids[0].tag == 'DeletedObject':
+                    del_el = del_uuids[1]
+                if self._parse_ts(del_el.Times.LastModificationTime) < \
+                   self._parse_ts(do.DeletionTime):
+                    # If the deletion time is newer than the lastmod,
+                    # the element has been deleted since its lastmod, so
+                    # delete. Otherwise the element was deleted in one
+                    # kdb and modified after the deletion time in another
+                    # kdb, thus we should keep it.
+                    del_el.getparent().remove(del_el)
+                    if self.debug:
+                        print("Deleting deleted object '{}' at time {}"% \
+                              (del_el.UUID.text, do.DeletionTime.text))
+    
     def _cmp_lastmod(self, el1, el2):
         "Compare el1 and el2 by the last modification time"
         el1_has_times = el1.find('./Times') is not None
@@ -454,6 +513,8 @@ class KDB4UUIDMerge(KDB4Merge):
                 print("Items in dest but not in src")
                 for uuid, el in self.__dest_uuids_remaining_map.items():
                     print(" *<{}>[{}]".format(el.tag,uuid), get_pw_path(el))
+        
+        self._merge_deleted_objects(rdest, rsrc)
         
         del self.__dest_uuid_map
 
