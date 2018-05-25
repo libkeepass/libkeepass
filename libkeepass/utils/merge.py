@@ -268,6 +268,13 @@ class KDB4Merge(KDBMerge):
             if edest_orig_hist is not None:
                 edest_orig.remove(edest_orig_hist)
             
+            if getattr(edest, 'History', None) is None:
+                edest.append(edest.makeelement('History'))
+            # Add original entry to History
+            edest.History.append(edest_orig)
+            if len(edest.History.getchildren()) > 1:
+                assert edest_orig.Times.LastModificationTime > edest.History.getchildren()[-2].Times.LastModificationTime
+            
             changes = []
             new_elems = []
             for eesrc in esrc.getchildren():
@@ -298,24 +305,6 @@ class KDB4Merge(KDBMerge):
             else:
                 # Add new subelements to the end
                 edest.extend(new_elems)
-                
-                # Add original entry to History
-                for pdhist in edest.History.getchildren()[::-1]:
-                    _cmp = self._cmp_lastmod(edest_orig, pdhist)
-                    if _cmp == 0:
-                        # Its already in the history, so don't add it
-                        break
-                    elif _cmp < 0:
-                        continue
-                    else:
-                        # Original is newer than current history entry, so
-                        # add after history entry
-                        pdhist.addnext(edest_orig)
-                        break
-                else:
-                    # Original is older than all history entries, so add at the
-                    # beginning of the history
-                    edest.History.insert(0, edest_orig)
             
             if self.debug and changes:
                 print("Differing Entry [%s]%s"%(edest.UUID.text, get_pw_path(edest)))
