@@ -59,12 +59,13 @@ def elem_tree_equal(el_a, el_b, **kwargs):
 
 class KDBEqual(object):
     def __init__(self, metadata=False, ignore_times=False, history=False,
-                 deleted_objects=True, ignore_attrs=True):
+                 deleted_objects=True, ignore_attrs=True, ignore_access_time=True):
         self.metadata = metadata
         self.ignore_times = ignore_times
         self.history = history
         self.deleted_objects = deleted_objects
         self.ignore_attrs = ignore_attrs
+        self.ignore_access_time = ignore_access_time
         
         self.error = KDBEqualError()
     
@@ -178,8 +179,11 @@ class KDBEqual(object):
         times_b = elem_b.findall('./Times')
         assert len(times_a) == 1, elem_a
         assert len(times_b) == 1, elem_b
+        ignore_elements = []
+        if self.ignore_access_time:
+            ignore_elements = ['LastAccessTime', 'UsageCount']
         if not self.ignore_times:
-            if not self.elem_tree_equal(times_a[0], times_b[0]):
+            if not self.elem_tree_equal(times_a[0], times_b[0], ignore_elements=ignore_elements):
                 self.error.msg = "Times differ: " + self.error.msg
                 return False
         
