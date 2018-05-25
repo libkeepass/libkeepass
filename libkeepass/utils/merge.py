@@ -286,8 +286,10 @@ class KDB4Merge(KDBMerge):
                         # not in dest, so add it
                         changes.append(('s'+eesrc.Key.text, '', eesrc.Value.text))
                         # Add before the History element if it exists or append to end
-                        edest_last_chld = edest.getchildren()[-1]
-                        if edest_last_chld.tag == 'History':
+                        edest_last_chld = (edest.getchildren() + [None])[-1]
+                        if edest_last_chld is None:
+                            edest.append(deepcopy(eesrc))
+                        elif edest_last_chld.tag == 'History':
                             edest_last_chld.addprevious(deepcopy(eesrc))
                         else:
                             edest_last_chld.addnext(deepcopy(eesrc))
@@ -477,7 +479,6 @@ class KDB4UUIDMerge(KDB4Merge):
                     el = pgrps[0].getprevious()
         el.addnext(dest)
         
-        dest.UUID = src.UUID
         self.__dest_uuid_map[src.UUID.text] = dest
         
         return dest
