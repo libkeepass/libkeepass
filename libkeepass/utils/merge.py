@@ -282,7 +282,7 @@ class KDB4Merge(KDBMerge):
                         kvs[0].replace(kvs[0].Value, deepcopy(eesrc.Value))
                     
                 elif eesrc.tag == 'History':
-                    self._merge_history(edest, eesrc)
+                    pass
                 else:
                     mchanges, mnew_elems = self._merge_metadata_item(edest, eesrc)
                     changes += mchanges
@@ -314,7 +314,9 @@ class KDB4Merge(KDBMerge):
                 for tag, cdest, csrc in changes:
                     if cdest != csrc:
                         print("  %s: '%s' <-- '%s'"%(tag, cdest, csrc))
-            
+        
+        # Always merge history
+        self._merge_history(edest, esrc.History)
         
         if eLocationChanged:
             self._merge_location_change(edest, esrc)
