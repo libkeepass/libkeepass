@@ -534,6 +534,7 @@ class KDB4UUIDMerge(KDB4Merge):
             if src.tag not in ('Group', 'Entry'):
                 continue
             
+            added_elem = False
             dest = self.__dest_uuid_map.get(src.UUID.text, None)
             self.__dest_uuids_remaining_map.pop(src.UUID.text, None)
             if dest is None:
@@ -541,12 +542,21 @@ class KDB4UUIDMerge(KDB4Merge):
                 pdest = self.__dest_uuid_map.get(gsrc.UUID.text, None)
                 assert pdest is not None, pdest
                 dest = self._new_element(pdest, src)
+                added_elem = True
+                if self.debug:
+                    print("  adding %s[UUID=%s] %s/%s"%(dest.tag, src.UUID.text, get_pw_path(pdest), pw_name(src)))
+            
+            old_debug = self.debug
+            if added_elem and self.debug:
+                self.debug = False
             
             assert dest.tag == src.tag, (dest.tag, dest.UUID.text)
             if src.tag == 'Group':
                 self._merge_group(dest, src)
             elif src.tag == 'Entry':
                 self._merge_entry(dest, src)
+            
+            self.debug = old_debug
         
         if gLocationChanged:
             self._merge_location_change(gdest, gsrc)
