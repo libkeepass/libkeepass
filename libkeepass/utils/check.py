@@ -143,16 +143,17 @@ class KDBEqual(object):
             self.error.msg = "Groups differ [%s]: "%(elem_a.UUID.text) + self.error.msg
             return False
         
-        groups = elem_a.findall('./Group')
-        entrys = elem_a.findall('./Entry')
-        
-        # Verify that all entries and subgroups of this group are in the other one
-        for chld_a in (groups + entrys):
-            chld_b = elem_b.findall("./%s[UUID='%s']"%(chld_a.tag, chld_a.UUID.text))
-            if chld_b is None:
-                self.error = KDBEqualError(chld_a, elem_b, msg="Did not find %s with UUID %s in right side"%(chld_a.tag, chld_a.UUID.text))
-                return False
-        
+        uuids_a = elem_a.findall('./Group/UUID')
+        uuids_a += elem_a.findall('./Entry/UUID')
+        uuids_b = elem_b.findall('./Group/UUID')
+        uuids_b += elem_b.findall('./Entry/UUID')
+        suuids_a = set(e.text for e in uuids_a)
+        suuids_b = set(e.text for e in uuids_b)
+        if suuids_a != suuids_b:
+            ldiff = suuids_a.difference(suuids_b)
+            rdiff = set(suuids_b).difference(suuids_a)
+            self.error = KDBEqualError(ldiff, rdiff, msg="UUID sets of sub groups and entries do not match. (l=%s, r=%s)"%(ldiff, rdiff))
+            return False
         return True
 
     def entry_equal(self, elem_a, elem_b):
