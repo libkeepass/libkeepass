@@ -53,6 +53,20 @@ class TestKDB4UUIDCheck_root_equal(TestKDB4UUIDCheck):
 
 
 class TestKDB4UUIDCheck_group_equal(TestKDB4UUIDCheck):
+    def test_trivial(self):
+        g1 = self.root.Root.Group.Group[0]
+        g2 = self.rootmod.Root.Group.Group[0]
+        
+        ret = self.eq.group_equal(g1, g2)
+        self.assertTrue(ret, msg="Groups not equal: %s"%self.eq.error.msg)
+        
+        # Modify group and verify its caught
+        g2.Name._setText(g2.Name+'!')
+        ret = self.eq.group_equal(g1, g2)
+        self.assertFalse(ret, msg="Group equal, but should not be")
+        self.assertEqual(self.eq.error.vals[0].tag, 'Name')
+        self.assertEqual(self.eq.error.vals[1], g2)
+    
     def test_extra_elements(self):
         g1 = self.root.Root.Group.Group[0]
         g2 = self.rootmod.Root.Group.Group[0]
