@@ -154,6 +154,23 @@ class KDBEqual(object):
             rdiff = set(suuids_b).difference(suuids_a)
             self.error = KDBEqualError(ldiff, rdiff, msg="UUID sets of sub groups and entries do not match. (l=%s, r=%s)"%(ldiff, rdiff))
             return False
+        
+        if recursive:
+            for e_a, e_b in sorted(zip(uuids_a, uuids_b), key=lambda item: (item[0].text, item[1].text)):
+                assert e_a.text == e_b.text, (e_a.text, e_b.text)
+                pe_a = e_a.getparent()
+                pe_b = e_b.getparent()
+                if pe_a.tag == 'Group':
+                    ret = self.group_equal(pe_a, pe_b, recursive)
+                elif pe_a.tag == 'Entry':
+                    ret = self.entry_equal(pe_a, pe_b)
+                else:
+                    assert False, "There should only be Groups or Entrys here: %s"%pe_a.tag
+                
+                if not ret:
+                    self.error.msg = "Groups differ [%s]: "%(elem_a.UUID.text) + self.error.msg
+                    return False
+        
         return True
 
     def entry_equal(self, elem_a, elem_b):

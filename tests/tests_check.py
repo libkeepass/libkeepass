@@ -75,6 +75,24 @@ class TestKDB4UUIDCheck_group_equal(TestKDB4UUIDCheck):
         
         ret = self.eq.group_equal(g1, g2)
         self.assertFalse(ret, msg="Group equal, but should not be")
+    
+    def test_recursive(self):
+        g1 = self.root.Root.Group.Group[0]
+        g2 = self.rootmod.Root.Group.Group[0]
+        
+        ret = self.eq.group_equal(g1, g2, recursive=True)
+        self.assertTrue(ret, msg="Groups not equal: %s"%self.eq.error.msg)
+        
+        # See if changes to sub-groups are picked up
+        g2.Group[0].Name._setText('name changed')
+        ret = self.eq.group_equal(g1, g2, recursive=True)
+        self.assertFalse(ret, msg="Group equal, but should not be")
+        
+        # See if changes to sub-entries are picked up
+        g2.Group[0].Name._setText(g1.Group[0].Name.text) # reset
+        g2.Group[0].Entry[0].String.Value._setText('Changed text...')
+        ret = self.eq.group_equal(g1, g2, recursive=True)
+        self.assertFalse(ret, msg="Group equal, but should not be")
 
 
 class TestKDB4UUIDCheck_elem_tree_equal(TestKDB4UUIDCheck):
