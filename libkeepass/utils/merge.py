@@ -355,32 +355,28 @@ class KDB4Merge(KDBMerge):
         dest_hist = dest.find('./History')
         if dest_hist is None:
             dest_hist = dest.makeelement('History')
-        else:
-            dest.remove(dest_hist)
-        # Add new empty History that will be filled below
-        dest_hist_new = dest.makeelement('History')
-        dest.append(dest_hist_new)
+            dest.append(dest_hist)
         
         pdhist = (dest_hist.getchildren() or [None])[0]
         pshist = (src_hist.getchildren() or [None])[0]
         while (pdhist is not None) or (pshist is not None):
             if pdhist is None:
-                dest_hist_new.append(deepcopy(pshist))
+                # Already reached the end of dest hist list...
+                dest_hist.append(deepcopy(pshist))
                 pshist = pshist.getnext()
             elif pshist is None:
-                dest_hist_new.append(deepcopy(pdhist))
-                pdhist = pdhist.getnext()
+                # Reached the end of src hist list, so done
+                break
             else:
                 _cmp = self._cmp_lastmod(pdhist, pshist)
                 if _cmp < 0:
-                    dest_hist_new.append(deepcopy(pdhist))
                     pdhist = pdhist.getnext()
                 elif _cmp > 0:
-                    dest_hist_new.append(deepcopy(pshist))
+                    # Source history item is older, so add it
+                    pdhist.addprevious(deepcopy(pshist))
                     pshist = pshist.getnext()
                 else:
                     # Same time stamp, assume same history record
-                    dest_hist_new.append(deepcopy(pdhist))
                     pdhist = pdhist.getnext()
                     pshist = pshist.getnext()
     
