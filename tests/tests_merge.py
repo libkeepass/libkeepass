@@ -29,6 +29,141 @@ kdbf_t2 = get_datafile('sample_merge-t0-t2.kdbx')
 def pretty_print_xml(el):
     return lxml.etree.tostring(el, pretty_print=True, encoding='utf-8', standalone=True)
 
+class TestKDB4UUIDMergeHistory(unittest.TestCase):
+    def setUp(self):
+        self.kdb_orig = libkeepass.open(kdbf_t0, password="qwerty")
+        self.kdbm = libkeepass.utils.merge.KDB4UUIDMerge(self.kdb_orig, self.kdb_orig, debug=False)
+        uuid = 'spHmZwBbGUuqvbi/mVCknw=='
+        self.entry = self.kdb_orig.obj_root.find(".//Entry[UUID='"+uuid+"']")
+        
+        # Add some more history elements
+        self.entry.History.clear()
+        n = 10
+        for i in range(n):
+            ce = copy.deepcopy(self.entry)
+            ce.remove(ce.History)
+            modtime = libkeepass.utils.merge.KDB4Merge._parse_ts(ce.Times.LastModificationTime.text)
+            modtime_str = "{:%Y-%m-%dT%H:%M:%S}Z".format(modtime - datetime.timedelta(n-i-1, 60))
+            ce.Times.LastModificationTime._setText(modtime_str)
+            self.entry.History.append(ce)
+        
+        self.entry2 = copy.deepcopy(self.entry)
+    
+    def tearDown(self):
+        self.kdb_orig.close()
+    
+    def get_history_lastmod_list(self, entry):
+        return [he.Times.LastModificationTime.text for he in entry.History.getchildren()]
+    
+    def test_merge_self(self):
+        "Merge of two equal histories, should be the same history."
+        self.kdbm._merge_history(self.entry, self.entry2.History)
+        self.assertEqual(self.get_history_lastmod_list(self.entry),
+                         self.get_history_lastmod_list(self.entry2))
+    
+    def test_merge_dest_no_history(self):
+        "Merge where dest has no history should equal source history."
+        self.entry.History.clear()
+        self.kdbm._merge_history(self.entry, self.entry2.History)
+        self.assertEqual(self.get_history_lastmod_list(self.entry),
+                         self.get_history_lastmod_list(self.entry2))
+    
+    def test_merge_src_no_history(self):
+        "Merge of empty source history, should do nothing."
+        self.entry2.History.clear()
+        prev_hist_list = self.get_history_lastmod_list(self.entry)
+        self.kdbm._merge_history(self.entry, self.entry2.History)
+        self.assertEqual(self.get_history_lastmod_list(self.entry),
+                         prev_hist_list)
+    
+    def test_merge_interleave(self):
+        """Merge where an original history is split into two histories, one with
+           even the other with odd elements.  The result should be the original
+           history.
+        """
+        prev_hist_list = self.get_history_lastmod_list(self.entry)
+        for he in self.entry.History.Entry[::2]:
+            self.entry.History.remove(he)
+        for he in self.entry2.History.Entry[1::2]:
+            self.entry2.History.remove(he)
+        
+        prev_hist_list.remove(self.entry2.History.Entry[-1].Times.LastModificationTime)
+        self.entry2.History.remove(self.entry2.History.Entry[-1])
+        self.kdbm._merge_history(self.entry, self.entry2.History)
+        self.assertEqual(self.get_history_lastmod_list(self.entry),
+                         prev_hist_list)
+        self.assertNotEqual(self.get_history_lastmod_list(self.entry),
+                            self.get_history_lastmod_list(self.entry2))
+    
+    def test_merge_interleave2(self):
+        "Test merging where some interleaving of width2 occurs."
+        prev_hist_list = self.get_history_lastmod_list(self.entry)
+        for i in (7, 6, 3, 2):
+            self.entry.History.remove(self.entry.History.Entry[i])
+        for i in (5, 4, 1, 0):
+            self.entry2.History.remove(self.entry2.History.Entry[i])
+        
+        self.entry2.History.remove(self.entry2.History.Entry[-1])
+        self.kdbm._merge_history(self.entry, self.entry2.History)
+        self.assertEqual(self.get_history_lastmod_list(self.entry),
+                         prev_hist_list)
+        self.assertNotEqual(self.get_history_lastmod_list(self.entry),
+                            self.get_history_lastmod_list(self.entry2))
+    
+    def test_merge_src_is_ansctr_dest(self):
+        "Test merging where source is ancestor of dest."
+        entry_copy = copy.deepcopy(self.entry)
+        new_src = copy.deepcopy(self.entry.History.Entry[4])
+        new_src.append(new_src.makeelement('History'))
+        for ehsrc in self.entry.History.Entry[:4]:
+            new_src.History.append(copy.deepcopy(ehsrc))
+        
+        self.kdbm._merge_entry(entry_copy, new_src)
+        self.assertEqual(self.get_history_lastmod_list(entry_copy),
+                         self.get_history_lastmod_list(self.entry))
+        self.assertNotEqual(self.get_history_lastmod_list(entry_copy),
+                            self.get_history_lastmod_list(new_src))
+    
+    def test_merge_dest_is_ansctr_src(self):
+        "Test merging where dest is ancestor of source."
+        prev_hist_list = self.get_history_lastmod_list(self.entry)
+        new_src = copy.deepcopy(self.entry.History.Entry[4])
+        new_src.append(new_src.makeelement('History'))
+        for ehsrc in self.entry.History.Entry[:4]:
+            new_src.History.append(copy.deepcopy(ehsrc))
+        
+        self.kdbm._merge_entry(new_src, self.entry)
+        self.assertEqual(self.get_history_lastmod_list(self.entry),
+                         prev_hist_list)
+        self.assertEqual(self.get_history_lastmod_list(self.entry),
+                         self.get_history_lastmod_list(new_src))
+    
+    def test_merge_src_has_extra_history(self):
+        "Test merging where source has extra history not in dest."
+        dest, src = copy.deepcopy(self.entry), copy.deepcopy(self.entry)
+        expected_hist_list = self.get_history_lastmod_list(dest)
+        
+        src_tmp = src.History.Entry[-1]
+        src.History.remove(src_tmp)
+        src_tmp.append(src.History)
+        src = src_tmp
+        src.History.remove(src.History.Entry[6])
+        src.History.remove(src.History.Entry[5])
+        src.History.remove(src.History.Entry[4])
+        
+        dest.History.remove(dest.History.Entry[9])
+        dest.History.remove(dest.History.Entry[8])
+        dest.History.remove(dest.History.Entry[7])
+        dest.History.remove(dest.History.Entry[6])
+        expected_hist_list.pop(6)
+        
+        self.kdbm._merge_entry(dest, src)
+        self.assertEqual(self.get_history_lastmod_list(dest),
+                         expected_hist_list)
+        self.assertNotEqual(self.get_history_lastmod_list(dest),
+                            self.get_history_lastmod_list(src))
+
+
 class TestKDB4UUIDMergeTrivial(unittest.TestCase):
     def test_merge_self(self):
         """Test direct KDB4Reader class usage"""
