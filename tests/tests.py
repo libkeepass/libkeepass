@@ -5,15 +5,15 @@ import datetime
 import unittest
 import warnings
 
+sys.path.append(os.path.abspath("."))
+sys.path.append(os.path.abspath(".."))
+
 import libkeepass
 import libkeepass.common
 import libkeepass.kdb4
 import libkeepass.kdb3
 import six
 
-
-sys.path.append(os.path.abspath("."))
-sys.path.append(os.path.abspath(".."))
 
 from libkeepass.crypto import sha256, transform_key, xor, pad
 from libkeepass.crypto import aes_cbc_decrypt, twofish_cbc_decrypt, twofish_cbc_encrypt
