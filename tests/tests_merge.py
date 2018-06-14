@@ -342,4 +342,45 @@ class TestKDB4UUIDMergeT1T2(unittest.TestCase):
         uuid = 'Wi5/5yOMVUya/O4RXGbfVg=='
         edest = kdb_dest.obj_root.find(".//Entry[UUID='%s']"%uuid)
         self.assertEqual('/sample_merge/Homebanking/Sample Entry #3', get_pw_path(edest))
+    
+    def test_merge_t2_into_t1_merge_all_histories(self):
+        """Test merging t2 into t1. That a modified entry in source but that was
+           modified later in dest, still gets put into the history of dest.
+        """
+        eq = libkeepass.utils.check.KDBEqual()
+        kdb_dest = self.kdb_dest
+        kdb_src = self.kdb_src
+        kdbm = libkeepass.utils.merge.KDB4UUIDMerge(kdb_dest, kdb_src, debug=False)
+        
+        # Add modified entry to dest, so that its newer than src and verify
+        # that we still merge histories.
+        uuid = 'spHmZwBbGUuqvbi/mVCknw=='
+        edest = kdb_dest.obj_root.find(".//Entry[UUID='%s']"%uuid)
+        esrc = kdb_src.obj_root.find(".//Entry[UUID='%s']"%uuid)
+        modtime = kdbm._parse_ts(esrc.Times.LastModificationTime)
+        
+        # Add unmodified entry to its history, then modify the original
+        prev_edest = copy.deepcopy(edest)
+        prev_edest.remove(prev_edest.History)
+        edest.History.append(prev_edest)
+        
+        # Add a day to the timestamp
+        modtime_str = "{:%Y-%m-%dT%H:%M:%S}Z".format(modtime + datetime.timedelta(1))
+        edest.Times.LastModificationTime._setText(modtime_str)
+        edest.Times.LastAccessTime._setText(modtime_str)
+        edest.Times.UsageCount._setText(str(int(edest.Times.UsageCount)+1))
+        edest.find("./String[Key='Notes']").Value._setText("Making this a newer entry...")
+        
+        kdbm.merge()
+        
+        # Entry version in src should now be in the history of dest.
+        lasthist_edest = None
+        for lasthist_edest in kdb_dest.obj_root.find(".//Entry[UUID='%s']"%uuid).History.getchildren():
+            if lasthist_edest.Times.LastModificationTime == esrc.Times.LastModificationTime:
+                break
+        else:
+            # Didn't find history entry with matching last modified
+            self.assertTrue(False, msg="No matching history entry found for %s with last modified at %s"%(uuid, esrc.Times.LastModificationTime))
+        is_eq = eq.entry_equal(esrc, lasthist_edest)
+        self.assertTrue(is_eq, msg="KDB entry not equal: %r"%(eq.error.msg,))
 
