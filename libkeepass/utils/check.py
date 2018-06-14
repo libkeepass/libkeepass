@@ -5,9 +5,9 @@ import lxml.objectify
 
 
 class KDBEqualError(object):
-    def __init__(self, *args, msg=''):
+    def __init__(self, *args, **kwargs):
         self.vals = args
-        self.msg = msg
+        self.msg = kwargs.pop('msg', None)
 
 
 def elem_tree_nequal(el_a, el_b, ignore_elements=tuple(), ignore_attrs=True):
