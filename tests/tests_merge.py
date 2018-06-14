@@ -164,6 +164,53 @@ class TestKDB4UUIDMergeHistory(unittest.TestCase):
                             self.get_history_lastmod_list(src))
 
 
+class TestKDB4UUIDMergeDeletions(unittest.TestCase):
+    def setUp(self):
+        self.kdb_orig = libkeepass.open(kdbf_t0, password="qwerty")
+        self.kdb_dest = libkeepass.open(kdbf_t0, password="qwerty")
+        self.kdb_src = libkeepass.open(kdbf_t0, password="qwerty")
+        self.kdbm = libkeepass.utils.merge.KDB4UUIDMerge(self.kdb_orig, self.kdb_orig, debug=False)
+    
+    def tearDown(self):
+        self.kdb_orig.close()
+        self.kdb_dest.close()
+        self.kdb_src.close()
+    
+    def get_uuids(self, kdb):
+        return [uuid.text for uuid in kdb.obj_root.Root.findall(".//*[Times]/UUID")]
+    
+    def test_merge_self(self):
+        "Merge with self, should cause no changes."
+        
+        rdest = self.kdb_dest.obj_root.Root
+        rsrc = self.kdb_src.obj_root.Root
+        self.kdbm._merge_deleted_objects(rdest, rsrc)
+        self.assertEqual(self.get_uuids(self.kdb_dest),
+                         self.get_uuids(self.kdb_src))
+        self.assertEqual(self.get_uuids(self.kdb_orig),
+                         self.get_uuids(self.kdb_dest))
+    
+    def test_merge_deleted_objects(self):
+        "Merge deleted entry and group in source."
+        uuids = ('spHmZwBbGUuqvbi/mVCknw==', 'nMwY1jD1RUOKZ9lSlUFGVA==')
+        for uuid in uuids:
+            esrc = self.kdb_src.obj_root.find(".//*[UUID='"+uuid+"']")
+            esrc.getparent().remove(esrc)
+            dosrc = self.kdb_src.obj_root.find(".//DeletedObjects")
+            do = dosrc.makeelement('DeletedObject')
+            do.UUID = esrc.UUID
+            do.DeletionTime = "{:%Y-%m-%dT%H:%M:%S}Z".format(datetime.datetime.utcnow())
+            dosrc.append(do)
+        
+        rdest = self.kdb_dest.obj_root.Root
+        rsrc = self.kdb_src.obj_root.Root
+        self.kdbm._merge_deleted_objects(rdest, rsrc)
+        self.assertEqual(self.get_uuids(self.kdb_dest),
+                         self.get_uuids(self.kdb_src))
+        self.assertEqual([u for u in self.get_uuids(self.kdb_orig) if u not in uuids],
+                         self.get_uuids(self.kdb_dest))
+    
+
 class TestKDB4UUIDMergeTrivial(unittest.TestCase):
     def test_merge_self(self):
         """Test direct KDB4Reader class usage"""
