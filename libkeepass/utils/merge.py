@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
 
+from __future__ import print_function
+
 import sys
 import os
 import datetime
@@ -40,6 +42,20 @@ class KDBMerge(object):
     "KDB merging base class"
     def merge(kdb_a, kdb_b):
         raise NotImplementedError("merging is unimplemented")
+
+    def _debug(self, *args, **kwargs):
+        kwargs.setdefault('file', self.debug)
+        print(*args, **kwargs)
+
+    @property
+    def debug(self):
+        return self.__debug
+    
+    @debug.setter
+    def debug(self, val):
+        if val is True:
+            val = sys.stderr
+        self.__debug = val
 
     @staticmethod
     def _parse_ts(date_text):
@@ -188,7 +204,8 @@ class KDB4Merge(KDBMerge):
                 setattr(mdest, ts_field, getattr(msrc, ts_field))
                 setattr(mdest, ts_field+'Changed', getattr(msrc, ts_field+'Changed'))
                 if self.debug:
-                    print("DB Meta Field <{}>: '{}' <-- '{}'".format(ts_field, getattr(mdest, ts_field), getattr(msrc, ts_field)))
+                    self._debug("DB Meta Field <{}>: '{}' <-- '{}'".format(ts_field, getattr(mdest, ts_field), getattr(msrc, ts_field)))
+        
         # Don't know how to merge binary or customdata...
         assert not mdest.Binaries, mdest.Binaries
         assert not mdest.CustomData, mdest.CustomData
@@ -267,10 +284,10 @@ class KDB4Merge(KDBMerge):
                     gdest.extend(new_elems)
             
             if self.debug and changes:
-                print("Differing Group [%s]%s"%(gdest.UUID.text, get_pw_path(gdest)))
+                self._debug("Differing Group [%s]%s"%(gdest.UUID.text, get_pw_path(gdest)))
                 for tag, cdest, csrc in changes:
                     if cdest != csrc:
-                        print("%s: '%s' <-- '%s'"%(tag, cdest, csrc))
+                        self._debug("%s: '%s' <-- '%s'"%(tag, cdest, csrc))
             
             return True
         return False
@@ -320,7 +337,7 @@ class KDB4Merge(KDBMerge):
         #~ </AutoType>
         #~ <History />
         if self.debug:
-            print("merging entry:", get_pw_path(esrc))
+            self._debug("merging entry:", get_pw_path(esrc))
         
         eLocationChanged = False
         if edest.find('./Times/LocationChanged'):
@@ -384,10 +401,10 @@ class KDB4Merge(KDBMerge):
                 edest.extend(new_elems)
             
             if self.debug and changes:
-                print("Differing Entry [%s]%s"%(edest.UUID.text, get_pw_path(edest)))
+                self._debug("Differing Entry [%s]%s"%(edest.UUID.text, get_pw_path(edest)))
                 for tag, cdest, csrc in changes:
                     if cdest != csrc:
-                        print("  %s: '%s' <-- '%s'"%(tag, cdest, csrc))
+                        self._debug("  %s: '%s' <-- '%s'"%(tag, cdest, csrc))
         elif cmp_lastmod > 0:
             # Since dest is newer than source, only need to add source to
             # dest's history, if not already there.
@@ -472,8 +489,8 @@ class KDB4Merge(KDBMerge):
                 # Already reached the end of dest hist list...
                 self.mm_ops.append((self.MOPS_ADD_HISTORY, dest, pshist))
                 if self.debug:
-                    print("Adding history to '%s' from time %s"% \
-                          (dest.UUID.text, pshist.Times.LastModificationTime))
+                    self._debug("Adding history to '%s' from time %s"% \
+                               (dest.UUID.text, pshist.Times.LastModificationTime))
                 dest_hist.append(deepcopy(pshist))
                 pshist = pshist.getnext()
             elif pshist is None:
@@ -487,8 +504,8 @@ class KDB4Merge(KDBMerge):
                     # Source history item is older, so add it
                     self.mm_ops.append((self.MOPS_ADD_HISTORY, dest, pshist))
                     if self.debug:
-                        print("Adding history to '%s' from time %s"% \
-                              (dest.UUID.text, pshist.Times.LastModificationTime))
+                        self._debug("Adding history to '%s' from time %s"% \
+                                   (dest.UUID.text, pshist.Times.LastModificationTime))
                     pdhist.addprevious(deepcopy(pshist))
                     pshist = pshist.getnext()
                 else:
@@ -530,8 +547,8 @@ class KDB4Merge(KDBMerge):
             # to dest.
             dodest.append(deepcopy(do))
             if self.debug:
-                print("Adding deleted object '{}' at time {}"% \
-                      (do.UUID.text, do.DeletionTime.text))
+                self._debug("Adding deleted object '{}' at time {}"% \
+                           (do.UUID.text, do.DeletionTime.text))
             
             # Check if the tree has any elements with UUIDs matching a deleted
             # UUID.
@@ -559,9 +576,9 @@ class KDB4Merge(KDBMerge):
                     self.mm_ops.append((mop, del_el, get_pw_path(del_el), do.DeletionTime.text))
                     del_el.getparent().remove(del_el)
                     if self.debug:
-                        print("Deleting deleted object '{}' at time {}"% \
-                              (del_el.UUID.text, do.DeletionTime.text))
-    
+                        self._debug("Deleting deleted object '{}' at time {}"% \
+                                   (del_el.UUID.text, do.DeletionTime.text))
+
     def _cmp_lastmod(self, el1, el2):
         "Compare el1 and el2 by the last modification time"
         el1_has_times = el1.find('./Times') is not None
@@ -633,9 +650,9 @@ class KDB4UUIDMerge(KDB4Merge):
             # the merge source, and should be left alone
             # But we do want to log for the diff
             if self.debug and self.__dest_uuids_remaining_map:
-                print("Items in dest but not in src")
+                self._debug("Items in dest but not in src")
                 for uuid, el in self.__dest_uuids_remaining_map.items():
-                    print(" *<{}>[{}]".format(el.tag,uuid), get_pw_path(el))
+                    self._debug(" *<{}>[{}]".format(el.tag,uuid), get_pw_path(el))
         
         self._merge_deleted_objects(rdest, rsrc)
         
@@ -643,7 +660,7 @@ class KDB4UUIDMerge(KDB4Merge):
 
     def _merge_group(self, gdest, gsrc):
         if self.debug:
-            print("merging group:", get_pw_path(gsrc))
+            self._debug("merging group:", get_pw_path(gsrc))
         
         if len(gdest.getchildren()) == 0:
             self.mm_ops.append((self.MOPS_ADD_GROUP, gdest))
@@ -670,7 +687,7 @@ class KDB4UUIDMerge(KDB4Merge):
                 dest = self._new_element(pdest, src)
                 added_elem = True
                 if self.debug:
-                    print("  adding %s[UUID=%s] %s/%s"%(dest.tag, src.UUID.text, get_pw_path(pdest), pw_name(src)))
+                    self._debug("  adding %s[UUID=%s] %s/%s"%(dest.tag, src.UUID.text, get_pw_path(pdest), pw_name(src)))
             
             old_debug = self.debug
             if added_elem and self.debug:
@@ -702,7 +719,7 @@ class KDB4UUIDMerge(KDB4Merge):
         pdest.append(dest)
         self.mm_ops.append((self.MOPS_MOVE, dest, old_path))
         if self.debug:
-            print(" * Move %s %s to %s"%(dest.tag, old_path, get_pw_path(dest)))
+            self._debug(" * Move %s %s to %s"%(dest.tag, old_path, get_pw_path(dest)))
         
         # Update location changed time
         dest.Times.LocationChanged = src.Times.LocationChanged
