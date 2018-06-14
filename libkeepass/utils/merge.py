@@ -313,6 +313,32 @@ class KDB4Merge(KDBMerge):
                 for tag, cdest, csrc in changes:
                     if cdest != csrc:
                         print("  %s: '%s' <-- '%s'"%(tag, cdest, csrc))
+        elif cmp_lastmod > 0:
+            # Since dest is newer than source, only need to add source to
+            # dest's history, if not already there.
+            
+            # Make copy of esrc to put in the History element later on
+            esrc_copy = deepcopy(esrc)
+            esrc_copy_hist = esrc_copy.find('./History')
+            if esrc_copy_hist is not None:
+                esrc_copy.remove(esrc_copy_hist)
+            
+            if getattr(edest, 'History', None) is None:
+                edest.append(edest.makeelement('History'))
+            
+            # If src is not in dest's history, add it in chronologically
+            for ehdest in edest.History.getchildren()[::-1]:
+                _cmp = self._cmp_lastmod(ehdest, esrc)
+                if _cmp == 0:
+                    break
+                elif _cmp < 0:
+                    ehdest.addnext(esrc_copy)
+                    break
+                elif _cmp > 0:
+                    continue
+            else:
+                assert 0, "Either dest has no history or src is older than the oldest history item..."
+        
         elif cmp_lastmod == 0:
             # Still should copy Times if access date is newer because
             # last access time and usage count could be different.
