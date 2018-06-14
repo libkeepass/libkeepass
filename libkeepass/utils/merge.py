@@ -47,6 +47,18 @@ class KDBMerge(object):
 
 
 class KDB4Merge(KDBMerge):
+    # Merge Operations
+    MOPS_MOVE = 1 # args: entry/group, old path
+    MOPS_ADD_GROUP = 2 # args: entry
+    MOPS_ADD_ENTRY = 3 # args: group
+    MOPS_ADD_PROP = 4 # args: entry/group, property
+    MOPS_MOD_PROP = 5 # args: entry/group, old prop, new prop
+    MOPS_MOD_META_PROP = 6 #args: meta field, old field value, new field value
+    MOPS_DEL_GROUP = 7 # args: deleted group, old path, deletion time
+    MOPS_DEL_ENTRY = 8 # args: deleted entry, old path, deletion time
+    MOPS_DEL_PROP = 9 # args: entry/group, old field value
+    MOPS_ADD_HISTORY = 10 # args: entry/group, history item
+
     def __init__(self, kdb_dest, kdb_src, metadata=False, debug=False):
         self.kdb_dest, self.kdb_src = kdb_dest, kdb_src
         self.metadata = metadata
@@ -57,6 +69,60 @@ class KDB4Merge(KDBMerge):
         # All newer entries from kdb_src should overwrite entries in kdb_dest.
         assert hasattr(kdb_dest, 'obj_root'), kdb_dest
         assert hasattr(kdb_src,  'obj_root'), kdb_src
+        
+        self.mm_ops = []
+
+    def print_mm_ops(self, file=sys.stdout):
+        if not self.mm_ops:
+            print("Merge made no changes")
+            return
+        
+        prev_el = None
+        print("Merge changes:", file=file)
+        for op in self.mm_ops:
+            opcode, vals = op[0], op[1:]
+            
+            if prev_el is None or prev_el != vals[0]:
+                # If the header for this element hasn't been printed yet,
+                # then print it for certain merge ops.
+                if opcode in (self.MOPS_ADD_PROP, self.MOPS_MOD_PROP, self.MOPS_DEL_PROP, self.MOPS_MOD_META_PROP):
+                    print(" ~[{}:{}]{}".format(vals[0].tag, vals[0].UUID.text, get_pw_path(vals[0])), file=file)
+        
+            if opcode == self.MOPS_MOVE:
+                print(" >[{}:{}]{}".format(vals[0].tag, vals[0].UUID.text, vals[1]), file=file)
+                print("        ->", get_pw_path(vals[0]), file=file)
+            elif opcode == self.MOPS_ADD_GROUP:
+                print(" +[Group:{}]{}".format(vals[0].UUID.text, get_pw_path(vals[0])), file=file)
+            elif opcode == self.MOPS_ADD_ENTRY:
+                print(" +[Entry:{}]{}".format(vals[0].UUID.text, get_pw_path(vals[0])), file=file)
+            elif opcode == self.MOPS_ADD_PROP:
+                if vals[1].tag == 'String':
+                    print("    +{} = {}".format('K:'+vals[1].Key.text, vals[1].Value.text), file=file)
+                else:
+                    print("    +{} = {}".format(vals[1].tag, lxml.etree.tostring(vals[1])), file=file)
+            elif opcode == self.MOPS_MOD_PROP:
+                oldprop, newprop = vals[1:]
+                if oldprop.tag == 'String':
+                    print("    ~{}: {} -> {}".format(oldprop.Key.text, oldprop.Value.text, newprop.Value.text), file=file)
+                else:
+                    print("    ~{}: {} -> {}".format(oldprop.tag, oldprop.text, newprop.text), file=file)
+            elif opcode == self.MOPS_MOD_META_PROP:
+                print("    ~{}: {} -> {}".format(*vals[1:]), file=file)
+            elif opcode == self.MOPS_DEL_GROUP:
+                print(" -[Group:{}]{}  <{}>".format(vals[0].UUID.text, vals[1], vals[2]), file=file)
+            elif opcode == self.MOPS_DEL_ENTRY:
+                print(" -[Entry:{}]{}  <{}>".format(vals[0].UUID.text, vals[1], vals[2]), file=file)
+            elif opcode == self.MOPS_DEL_PROP:
+                if vals[1].tag == 'String':
+                    print("    -{} ".format(vals[1].Key.text), file=file)
+                else:
+                    print("    -{} ".format(vals[1].tag), file=file)
+            elif opcode == self.MOPS_ADD_HISTORY:
+                print(" +[{}]{} Add history {}".format(vals[0].UUID.text, get_pw_path(vals[0]), vals[1].Times.LastModificationTime), file=file)
+                
+            else:
+                raise Exception("Unknown merge opcode %r"%opcode)
+            prev_el = vals[0]
 
     def merge(self):
         "Merge a KDB4 databases"
@@ -118,6 +184,7 @@ class KDB4Merge(KDBMerge):
         for ts_field in ts_fields:
             if self._parse_ts(getattr(mdest, ts_field+'Changed', datetime.utcfromtimestamp(0))) \
              < self._parse_ts(getattr(msrc, ts_field+'Changed')):
+                self.mm_ops.append((self.MOPS_MOD_META_PROP, ts_field, getattr(mdest, ts_field), getattr(msrc, ts_field)))
                 setattr(mdest, ts_field, getattr(msrc, ts_field))
                 setattr(mdest, ts_field+'Changed', getattr(msrc, ts_field+'Changed'))
                 if self.debug:
@@ -163,6 +230,7 @@ class KDB4Merge(KDBMerge):
                 gdest.Times = deepcopy(gsrc.Times)
         
         if do_merge:
+            isnew = (len(gdest.getchildren())==0)
             changes = []
             new_elems = []
             for gesrc in gsrc.getchildren():
@@ -175,16 +243,20 @@ class KDB4Merge(KDBMerge):
                     # If element doesn't exist in dest, append a copy
                     new_elems.append(deepcopy(gesrc))
                     changes.append((gesrc.tag, '', lxml.etree.tostring(gesrc)))
-                    continue
-                
-                if len(gesrc.getchildren()) > 0 or len(gedest.getchildren()) > 0:
+                    mm_op = (self.MOPS_ADD_PROP, gdest, new_elems[-1])
+                elif len(gesrc.getchildren()) > 0 or len(gedest.getchildren()) > 0:
                     # If either subelements have subelements themselves...
+                    mm_op = (self.MOPS_MOD_PROP, gdest, deepcopy(gedest), deepcopy(gesrc))
                     changes.append((gesrc.tag, lxml.etree.tostring(gedest), lxml.etree.tostring(gesrc)))
                     gdest.replace(gedest, deepcopy(gesrc))
                 elif gedest.text != gesrc.text:
                     # Treat as subelements with text nodes
+                    mm_op = (self.MOPS_MOD_PROP, gdest, deepcopy(gedest), deepcopy(gesrc))
                     changes.append((gesrc.tag, gedest.text, gesrc.text))
                     gedest.text = gesrc.text
+                
+                if not isnew:
+                    self.mm_ops.append(mm_op)
             else:
                 # Add new subelements before any Entry or Group subelements
                 prepend_elem = getattr(gdest, 'Entry', None) or getattr(gdest, 'Group', None)
@@ -260,6 +332,7 @@ class KDB4Merge(KDBMerge):
         
         if len(edest.getchildren()) == 0:
             # Newly added entry...
+            self.mm_ops.append((self.MOPS_ADD_ENTRY, edest))
             edest.extend(deepcopy(esrc).getchildren())
         elif cmp_lastmod < 0:
             # Make copy of edest to put in the History element later on
@@ -284,6 +357,7 @@ class KDB4Merge(KDBMerge):
                     assert len(kvs) <= 1, (edest.UUID.text, eesrc.Key.text, kvs)
                     if len(kvs) == 0:
                         # not in dest, so add it
+                        self.mm_ops.append((self.MOPS_ADD_PROP, edest, deepcopy(eesrc)))
                         changes.append(('s'+eesrc.Key.text, '', eesrc.Value.text))
                         # Add before the History element if it exists or append to end
                         edest_last_chld = (edest.getchildren() + [None])[-1]
@@ -295,6 +369,7 @@ class KDB4Merge(KDBMerge):
                             edest_last_chld.addnext(deepcopy(eesrc))
                         
                     elif len(kvs) == 1:
+                        self.mm_ops.append((self.MOPS_MOD_PROP, edest, deepcopy(kvs[0]), deepcopy(eesrc)))
                         changes.append(('s'+eesrc.Key.text, kvs[0].Value.text, eesrc.Value.text))
                         kvs[0].replace(kvs[0].Value, deepcopy(eesrc.Value))
                     
@@ -340,11 +415,15 @@ class KDB4Merge(KDBMerge):
                 assert 0, "Either dest has no history or src is older than the oldest history item..."
         
         elif cmp_lastmod == 0:
-            # Still should copy Times if access date is newer because
-            # last access time and usage count could be different.
+            # Same last modification time but might have different access times
+            # and usage counts.
             if self._parse_ts(edest.Times.LastAccessTime) < \
                self._parse_ts(esrc.Times.LastAccessTime):
-                edest.Times = deepcopy(esrc.Times)
+                self.mm_ops.append((self.MOPS_MOD_PROP, edest, deepcopy(edest.Times.LastAccessTime), deepcopy(esrc.Times.LastAccessTime)))
+                edest.Times.LastAccessTime._setText(esrc.Times.LastAccessTime.text)
+                if int(edest.Times.UsageCount.text) != int(esrc.Times.UsageCount.text):
+                    self.mm_ops.append((self.MOPS_MOD_PROP, edest, deepcopy(edest.Times.UsageCount), deepcopy(esrc.Times.UsageCount)))
+                    edest.Times.UsageCount._setText(esrc.Times.UsageCount.text)
         
         # Always merge history
         self._merge_history(edest, esrc.History)
@@ -360,14 +439,17 @@ class KDB4Merge(KDBMerge):
         dest = getattr(pdest, src.tag, None)
         if dest is None:
             # If element doesn't exist, append a copy
+            self.mm_ops.append((self.MOPS_ADD_PROP, pdest, deepcopy(src)))
             new_elems.append(deepcopy(src))
             changes.append((src.tag, '', lxml.etree.tostring(src)))
         elif len(src.getchildren()) > 0 or len(dest.getchildren()) > 0:
             # If either subelements have subelements themselves...
+            self.mm_ops.append((self.MOPS_MOD_PROP, pdest, deepcopy(dest), deepcopy(src)))
             changes.append((src.tag, lxml.etree.tostring(dest), lxml.etree.tostring(src)))
             pdest.replace(dest, deepcopy(src))
         elif dest.text != src.text:
             # Treat as subelements with text nodes
+            self.mm_ops.append((self.MOPS_MOD_PROP, pdest, deepcopy(dest), deepcopy(src)))
             changes.append((src.tag, dest.text, src.text))
             dest._setText(src.text)
         return (changes, new_elems)
@@ -388,6 +470,7 @@ class KDB4Merge(KDBMerge):
         while (pdhist is not None) or (pshist is not None):
             if pdhist is None:
                 # Already reached the end of dest hist list...
+                self.mm_ops.append((self.MOPS_ADD_HISTORY, dest, pshist))
                 if self.debug:
                     print("Adding history to '%s' from time %s"% \
                           (dest.UUID.text, pshist.Times.LastModificationTime))
@@ -402,6 +485,7 @@ class KDB4Merge(KDBMerge):
                     pdhist = pdhist.getnext()
                 elif _cmp > 0:
                     # Source history item is older, so add it
+                    self.mm_ops.append((self.MOPS_ADD_HISTORY, dest, pshist))
                     if self.debug:
                         print("Adding history to '%s' from time %s"% \
                               (dest.UUID.text, pshist.Times.LastModificationTime))
@@ -466,6 +550,13 @@ class KDB4Merge(KDBMerge):
                     # delete. Otherwise the element was deleted in one
                     # kdb and modified after the deletion time in another
                     # kdb, thus we should keep it.
+                    if del_el.tag == 'Group':
+                        mop = MOPS_DEL_GROUP
+                    elif del_el.tag == 'Entry':
+                        mop = MOPS_DEL_ENTRY
+                    else:
+                        raise Exception("Unsupported deleted element: %s"%del_el.tag)
+                    self.mm_ops.append((mop, del_el, get_pw_path(del_el), do.DeletionTime.text))
                     del_el.getparent().remove(del_el)
                     if self.debug:
                         print("Deleting deleted object '{}' at time {}"% \
@@ -554,6 +645,9 @@ class KDB4UUIDMerge(KDB4Merge):
         if self.debug:
             print("merging group:", get_pw_path(gsrc))
         
+        if len(gdest.getchildren()) == 0:
+            self.mm_ops.append((self.MOPS_ADD_GROUP, gdest))
+        
         gLocationChanged = False
         if gdest.find('./Times/LocationChanged'):
             gLocationChanged = self._parse_ts(gdest.Times.LocationChanged) < \
@@ -606,6 +700,7 @@ class KDB4UUIDMerge(KDB4Merge):
         pdest.remove(dest)
         pdest = self.__dest_uuid_map[psrc.UUID.text]
         pdest.append(dest)
+        self.mm_ops.append((self.MOPS_MOVE, dest, old_path))
         if self.debug:
             print(" * Move %s %s to %s"%(dest.tag, old_path, get_pw_path(dest)))
         
