@@ -388,6 +388,9 @@ class KDB4Merge(KDBMerge):
         while (pdhist is not None) or (pshist is not None):
             if pdhist is None:
                 # Already reached the end of dest hist list...
+                if self.debug:
+                    print("Adding history to '%s' from time %s"% \
+                          (dest.UUID.text, pshist.Times.LastModificationTime))
                 dest_hist.append(deepcopy(pshist))
                 pshist = pshist.getnext()
             elif pshist is None:
@@ -399,6 +402,9 @@ class KDB4Merge(KDBMerge):
                     pdhist = pdhist.getnext()
                 elif _cmp > 0:
                     # Source history item is older, so add it
+                    if self.debug:
+                        print("Adding history to '%s' from time %s"% \
+                              (dest.UUID.text, pshist.Times.LastModificationTime))
                     pdhist.addprevious(deepcopy(pshist))
                     pshist = pshist.getnext()
                 else:
