@@ -259,7 +259,7 @@ class KDB4Merge(KDBMerge):
                 if gedest is None:
                     # If element doesn't exist in dest, append a copy
                     new_elems.append(deepcopy(gesrc))
-                    changes.append((gesrc.tag, '', lxml.etree.tostring(gesrc)))
+                    changes.append((gesrc.tag, None, lxml.etree.tostring(gesrc)))
                     mm_op = (self.MOPS_ADD_PROP, gdest, new_elems[-1])
                 elif len(gesrc.getchildren()) > 0 or len(gedest.getchildren()) > 0:
                     # If either subelements have subelements themselves...
@@ -287,7 +287,7 @@ class KDB4Merge(KDBMerge):
                 self._debug("Differing Group [%s]%s"%(gdest.UUID.text, get_pw_path(gdest)))
                 for tag, cdest, csrc in changes:
                     if cdest != csrc:
-                        self._debug("%s: '%s' <-- '%s'"%(tag, cdest, csrc))
+                        self._debug("%s: %r <-- %r"%(tag, cdest, csrc))
             
             return True
         return False
@@ -375,7 +375,7 @@ class KDB4Merge(KDBMerge):
                     if len(kvs) == 0:
                         # not in dest, so add it
                         self.mm_ops.append((self.MOPS_ADD_PROP, edest, deepcopy(eesrc)))
-                        changes.append(('s'+eesrc.Key.text, '', eesrc.Value.text))
+                        changes.append(('s'+eesrc.Key.text, None, eesrc.Value.text))
                         # Add before the History element if it exists or append to end
                         edest_last_chld = (edest.getchildren() + [None])[-1]
                         if edest_last_chld is None:
@@ -404,7 +404,7 @@ class KDB4Merge(KDBMerge):
                 self._debug("Differing Entry [%s]%s"%(edest.UUID.text, get_pw_path(edest)))
                 for tag, cdest, csrc in changes:
                     if cdest != csrc:
-                        self._debug("  %s: '%s' <-- '%s'"%(tag, cdest, csrc))
+                        self._debug("  %s: %r <-- %r"%(tag, cdest, csrc))
         elif cmp_lastmod > 0:
             # Since dest is newer than source, only need to add source to
             # dest's history, if not already there.
