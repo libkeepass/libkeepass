@@ -385,7 +385,7 @@ class KDB4Merge(KDBMerge):
                     if len(kvs) == 0:
                         # not in dest, so add it
                         self.mm_ops.append((KDBMergeOps.MOPS_ADD_PROP, edest, deepcopy(eesrc)))
-                        changes.append(('s'+eesrc.Key.text, None, eesrc.Value.text))
+                        changes.append(('+s'+eesrc.Key.text, None, eesrc.Value.text))
                         # Add before the History element if it exists or append to end
                         edest_last_chld = (edest.getchildren() + [None])[-1]
                         if edest_last_chld is None:
@@ -395,9 +395,10 @@ class KDB4Merge(KDBMerge):
                         else:
                             edest_last_chld.addnext(deepcopy(eesrc))
                         
-                    elif len(kvs) == 1:
+                    elif len(kvs) == 1 and (kvs[0].Value.text != eesrc.Value.text):
+                        # dest has a string with this key and the values are different
                         self.mm_ops.append((KDBMergeOps.MOPS_MOD_PROP, edest, deepcopy(kvs[0]), deepcopy(eesrc)))
-                        changes.append(('s'+eesrc.Key.text, kvs[0].Value.text, eesrc.Value.text))
+                        changes.append(('~s'+eesrc.Key.text, kvs[0].Value.text, eesrc.Value.text))
                         kvs[0].replace(kvs[0].Value, deepcopy(eesrc.Value))
                     
                 elif eesrc.tag == 'History':
@@ -413,8 +414,7 @@ class KDB4Merge(KDBMerge):
             if self.debug and changes:
                 self._debug("Differing Entry [%s]%s"%(edest.UUID.text, get_pw_path(edest)))
                 for tag, cdest, csrc in changes:
-                    if cdest != csrc:
-                        self._debug("  %s: %r <-- %r"%(tag, cdest, csrc))
+                    self._debug("  %s: %r <-- %r"%(tag, cdest, csrc))
         elif cmp_lastmod > 0:
             # Since dest is newer than source, only need to add source to
             # dest's history, if not already there.
@@ -461,23 +461,30 @@ class KDB4Merge(KDBMerge):
     def _merge_metadata_item(self, pdest, src):
         "Merge metadata items that do not need special attention"
         # Assume that no elements have both subelements and inner text
+        # Also assume that there can not be deletions of items...
         changes = []
         new_elems = []
         dest = getattr(pdest, src.tag, None)
+        
+        xmldest, xmlsrc = lxml.etree.tostring(dest), lxml.etree.tostring(src)
+        
         if dest is None:
             # If element doesn't exist, append a copy
-            self.mm_ops.append((KDBMergeOps.MOPS_ADD_PROP, pdest, deepcopy(src)))
             new_elems.append(deepcopy(src))
-            changes.append((src.tag, '', lxml.etree.tostring(src)))
+            changes.append(('+'+src.tag, '', xmlsrc))
+            self.mm_ops.append((KDBMergeOps.MOPS_ADD_PROP, pdest, new_elems[-1]))
+        elif xmldest == xmlsrc:
+            # Nothing changed, so do nothing...
+            pass
         elif len(src.getchildren()) > 0 or len(dest.getchildren()) > 0:
             # If either subelements have subelements themselves...
             self.mm_ops.append((KDBMergeOps.MOPS_MOD_PROP, pdest, deepcopy(dest), deepcopy(src)))
-            changes.append((src.tag, lxml.etree.tostring(dest), lxml.etree.tostring(src)))
+            changes.append(('~'+src.tag, xmldest, xmlsrc))
             pdest.replace(dest, deepcopy(src))
         elif dest.text != src.text:
             # Treat as subelements with text nodes
             self.mm_ops.append((KDBMergeOps.MOPS_MOD_PROP, pdest, deepcopy(dest), deepcopy(src)))
-            changes.append((src.tag, dest.text, src.text))
+            changes.append(('~'+src.tag, dest.text, src.text))
             dest._setText(src.text)
         return (changes, new_elems)
     
