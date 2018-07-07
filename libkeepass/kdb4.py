@@ -9,6 +9,7 @@ import base64
 import codecs
 
 from libkeepass.crypto import (xor, sha256, aes_cbc_decrypt, aes_cbc_encrypt,
+    chacha20_cbc_decrypt, chacha20_cbc_encrypt,
     twofish_cbc_decrypt, twofish_cbc_encrypt,
     transform_key, pad, unpad)
 
@@ -56,6 +57,7 @@ class KDB4Header(HeaderDictionary):
     ciphers = {
         codecs.decode(b'31c1f2e6bf714350be5805216afc5aff', 'hex'): 'AES',
         codecs.decode(b'ad68f29f576f4bb9a36ad47af965346c', 'hex'): 'Twofish',
+        codecs.decode(b'd6038a2b8b6f4cb5a524339a31dbb59a', 'hex'): 'Chacha20',
     }
 
 
@@ -197,6 +199,10 @@ class KDB4File(KDBFile):
             data = aes_cbc_decrypt(stream.read(), self.master_key,
                                    self.header.EncryptionIV)
             data = unpad(data)
+        elif ciphername == 'Chacha20':
+            data = chacha20_cbc_decrypt(stream.read(), self.master_key,
+                                   self.header.EncryptionIV)
+            data = unpad(data)
         elif ciphername == 'Twofish':
             data = twofish_cbc_decrypt(stream.read(), self.master_key,
                                    self.header.EncryptionIV)
@@ -239,6 +245,10 @@ class KDB4File(KDBFile):
         if ciphername == 'AES':
             data = pad(self.out_buffer.read())
             self.out_buffer = aes_cbc_encrypt(data, self.master_key,
+                                              self.header.EncryptionIV)
+        elif ciphername == 'Chacha20':
+            data = pad(self.out_buffer.read())
+            self.out_buffer = chacha20_cbc_encrypt(data, self.master_key,
                                               self.header.EncryptionIV)
         elif ciphername == 'Twofish':
             data = pad(self.out_buffer.read())

@@ -5,15 +5,13 @@ import datetime
 import unittest
 import warnings
 
+
 import libkeepass
 import libkeepass.common
 import libkeepass.kdb4
 import libkeepass.kdb3
 import six
 
-
-sys.path.append(os.path.abspath("."))
-sys.path.append(os.path.abspath(".."))
 
 from libkeepass.crypto import sha256, transform_key, xor, pad
 from libkeepass.crypto import aes_cbc_decrypt, twofish_cbc_decrypt, twofish_cbc_encrypt
@@ -221,6 +219,8 @@ absfile5 = os.path.abspath('tests/sample4.kdbx')
 keyfile5 = os.path.abspath('tests/sample3_keyfile.exe')
 # created with KeePass 2.32 on linux encrypted with twofish
 absfile6 = os.path.abspath('tests/sample8_twofish.kdbx')
+# created with KeePass 2.38 on linux encrypted with chacha20
+absfile7 = os.path.abspath('tests/sample9_chacha20.kdbx')
 
 output1 = os.path.abspath('tests/output1.kdbx')
 output4 = os.path.abspath('tests/output4.kdbx')
@@ -326,7 +326,7 @@ class TestKDB4(unittest.TestCase):
 
             self.assertIsNotNone(kdb.pretty_print())
 
-		# unprotect=False
+        # unprotect=False
         with libkeepass.open(absfile4, password="qwer", 
 									keyfile=keyfile4, unprotect=False) as kdb:
             self.assertIsNotNone(kdb)
@@ -352,6 +352,13 @@ class TestKDB4(unittest.TestCase):
         with libkeepass.open(absfile6, password="qwerty") as kdb:
             self.assertIsNotNone(kdb)
             self.assertEqual(kdb.opened, True)
+
+        # chacha20 encryption
+        with libkeepass.open(absfile7, password="qwerty") as kdb:
+            self.assertIsNotNone(kdb)
+            self.assertEqual(kdb.opened, True)
+            self.assertEqual(libkeepass.kdb4.KDB4Header.ciphers[kdb.header.CipherID],
+                             "Chacha20")
 
 
 class TestKDB3(unittest.TestCase):
