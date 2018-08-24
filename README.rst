@@ -1,7 +1,7 @@
 libkeepass
 ==========
 
-Low-level Python (2.7/3.x) module to read KeePass 1.x/KeePassX (v3) and KeePass 2.x (v4)
+Low-level Python (2.7/3.x) module to read KeePass 1.x/KeePassX (.kdb) and KeePass 2.x (.kdbx v3)
 files.
 
 See `pykeepass`_ or `kppy`_ for higher level database access and editing.
@@ -37,6 +37,8 @@ No write support.
 
 KeePass 2.x support
 -------------------
+
+(Note: no support for KDBX v4 files)
 
 The v4 reader can output the decrypted XML document that file format is based
 on. It is also available as parsed objectified element tree.
