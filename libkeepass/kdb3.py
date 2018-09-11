@@ -13,7 +13,7 @@ from binascii import * # for entry id
 from libkeepass.crypto import xor, sha256, aes_cbc_decrypt, twofish_cbc_decrypt
 from libkeepass.crypto import transform_key, unpad
 
-from libkeepass.common import load_keyfile, stream_unpack
+from libkeepass.common import IS_PYTHON_3, load_keyfile, stream_unpack
 from libkeepass.common import KDBFile, HeaderDictionary
 
 
@@ -144,7 +144,7 @@ class KDBExtension:
         self.metainfo = []
         self.groups, self.entries = self._parse_body()
 
-    def pretty_print(self):
+    def pretty_print(self, print_=False):
         """Return a serialization of the element tree."""
         pwentries = []
         for entry in self.entries:
@@ -179,8 +179,11 @@ class KDBExtension:
 {pwentries}
 </pwlist>""".format(pwentries='\n'.join(pwentries)))
         
-        return etree.tostring(self.obj_root, pretty_print=True,
-                              encoding='utf-8', standalone=True)
+        pp = etree.tostring(self.obj_root, pretty_print=True,
+                            encoding='utf-8', standalone=True)
+        if print_ and IS_PYTHON_3:
+            pp = str(pp, encoding='utf-8')
+        return pp
 
     def write_to(self, stream):
         """Serialize the element tree to the out-buffer."""

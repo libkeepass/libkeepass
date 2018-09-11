@@ -13,7 +13,7 @@ from libkeepass.crypto import (xor, sha256, aes_cbc_decrypt, aes_cbc_encrypt,
     twofish_cbc_decrypt, twofish_cbc_encrypt,
     transform_key, pad, unpad)
 
-from libkeepass.common import load_keyfile, stream_unpack
+from libkeepass.common import IS_PYTHON_3, load_keyfile, stream_unpack
 
 from libkeepass.common import KDBFile, HeaderDictionary
 from libkeepass.hbio import HashedBlockIO
@@ -364,10 +364,13 @@ class KDBXmlExtension:
             assert len(self.obj_root.findall('.//Value[@Protected="False"]')) == 0
         return protected
 
-    def pretty_print(self):
+    def pretty_print(self, print_=False):
         """Return a serialization of the element tree."""
-        return etree.tostring(self.obj_root, pretty_print=True,
-                              encoding='utf-8', standalone=True)
+        pp = etree.tostring(self.obj_root, pretty_print=True,
+                            encoding='utf-8', standalone=True)
+        if print_ and IS_PYTHON_3:
+            pp = str(pp, encoding='utf-8')
+        return pp
 
     def write_to(self, stream):
         """Serialize the element tree to the out-buffer."""
