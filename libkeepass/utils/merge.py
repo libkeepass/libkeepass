@@ -714,7 +714,8 @@ class KDB4Merge(KDBMerge):
         new_elems = []
         dest = getattr(pdest, src.tag, None)
         
-        xmldest, xmlsrc = lxml.etree.tostring(dest), lxml.etree.tostring(src)
+        xmldest = lxml.etree.tostring(dest) if (dest is not None) else None
+        xmlsrc = lxml.etree.tostring(src)
         
         if dest is None:
             # If element doesn't exist, append a copy
