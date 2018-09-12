@@ -564,7 +564,7 @@ class KDB4Merge(KDBMerge):
             # to dest.
             dodest.append(deepcopy(do))
             if self.debug:
-                self._debug("Adding deleted object '{}' at time {}"% \
+                self._debug("Adding deleted object '%s' at time %s"% \
                            (do.UUID.text, do.DeletionTime.text))
             
             # Check if the tree has any elements with UUIDs matching a deleted
@@ -593,7 +593,7 @@ class KDB4Merge(KDBMerge):
                     self.mm_ops.append((mop, del_el, get_pw_path(del_el), do.DeletionTime.text))
                     del_el.getparent().remove(del_el)
                     if self.debug:
-                        self._debug("Deleting deleted object '{}' at time {}"% \
+                        self._debug("Deleting deleted object '%s' at time %s"% \
                                    (del_el.UUID.text, do.DeletionTime.text))
 
     def _cmp_lastmod(self, el1, el2):
