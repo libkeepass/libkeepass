@@ -10,6 +10,7 @@ import libkeepass
 import libkeepass.common
 import libkeepass.kdb4
 import libkeepass.kdb3
+import libkeepass.utils
 import libkeepass.utils.merge
 import libkeepass.utils.check
 import six
@@ -42,7 +43,7 @@ class TestKDB4UUIDMergeHistory(unittest.TestCase):
         for i in range(n):
             ce = copy.deepcopy(self.entry)
             ce.remove(ce.History)
-            modtime = libkeepass.utils.merge.KDB4Merge._parse_ts(ce.Times.LastModificationTime.text)
+            modtime = libkeepass.utils.parse_timestamp(ce.Times.LastModificationTime.text)
             modtime_str = "{:%Y-%m-%dT%H:%M:%S}Z".format(modtime - datetime.timedelta(n-i-1, 60))
             ce.Times.LastModificationTime._setText(modtime_str)
             self.entry.History.append(ce)
@@ -404,7 +405,7 @@ class TestKDB4UUIDMergeT1T2(unittest.TestCase):
         uuid = 'spHmZwBbGUuqvbi/mVCknw=='
         edest = kdb_dest.obj_root.find(".//Entry[UUID='%s']"%uuid)
         esrc = kdb_src.obj_root.find(".//Entry[UUID='%s']"%uuid)
-        modtime = kdbm._parse_ts(esrc.Times.LastModificationTime)
+        modtime = libkeepass.utils.parse_timestamp(esrc.Times.LastModificationTime)
         
         # Add unmodified entry to its history, then modify the original
         prev_edest = copy.deepcopy(edest)

@@ -12,6 +12,8 @@ from copy import deepcopy
 import lxml.etree
 import lxml.objectify
 
+from . import parse_timestamp
+
 
 def pw_name(el):
     assert el.tag in ('Entry', 'Group'), el
@@ -131,10 +133,6 @@ class KDBMerge(object):
             val = sys.stderr
         self.__debug = val
 
-    @staticmethod
-    def _parse_ts(date_text):
-        return datetime.strptime(str(date_text), '%Y-%m-%dT%H:%M:%SZ')
-
 
 class KDB4Merge(KDBMerge):
     def __init__(self, kdb_dest, kdb_src, metadata=False, debug=False):
@@ -208,8 +206,8 @@ class KDB4Merge(KDBMerge):
         ts_fields = ('DatabaseName', 'DatabaseDescription', 'DefaultUserName',
             'EntryTemplatesGroup')
         for ts_field in ts_fields:
-            if self._parse_ts(getattr(mdest, ts_field+'Changed', datetime.utcfromtimestamp(0))) \
-             < self._parse_ts(getattr(msrc, ts_field+'Changed')):
+            if parse_timestamp(getattr(mdest, ts_field+'Changed', datetime.utcfromtimestamp(0))) \
+             < parse_timestamp(getattr(msrc, ts_field+'Changed')):
                 self.mm_ops.append((KDBMergeOps.MOPS_MOD_META_PROP, ts_field, getattr(mdest, ts_field), getattr(msrc, ts_field)))
                 setattr(mdest, ts_field, getattr(msrc, ts_field))
                 setattr(mdest, ts_field+'Changed', getattr(msrc, ts_field+'Changed'))
@@ -245,15 +243,15 @@ class KDB4Merge(KDBMerge):
         #~ <LastTopVisibleEntry>AAAAAAAAAAAAAAAAAAAAAA==</LastTopVisibleEntry>
         do_merge = True
         if gdest.find('./Times/LastModificationTime'):
-            do_merge = self._parse_ts(gdest.Times.LastModificationTime) < \
-                       self._parse_ts(gsrc.Times.LastModificationTime)
+            do_merge = parse_timestamp(gdest.Times.LastModificationTime) < \
+                       parse_timestamp(gsrc.Times.LastModificationTime)
             
             # Still should copy Times if modification dates are the same
             # because last access time and usage count could be different.
-            if (self._parse_ts(gdest.Times.LastModificationTime) == \
-                self._parse_ts(gsrc.Times.LastModificationTime)) and \
-               (self._parse_ts(gdest.Times.LastAccessTime) < \
-                self._parse_ts(gsrc.Times.LastAccessTime)):
+            if (parse_timestamp(gdest.Times.LastModificationTime) == \
+                parse_timestamp(gsrc.Times.LastModificationTime)) and \
+               (parse_timestamp(gdest.Times.LastAccessTime) < \
+                parse_timestamp(gsrc.Times.LastAccessTime)):
                 gdest.Times = deepcopy(gsrc.Times)
         
         if do_merge:
@@ -351,8 +349,8 @@ class KDB4Merge(KDBMerge):
         
         eLocationChanged = False
         if edest.find('./Times/LocationChanged'):
-            eLocationChanged = self._parse_ts(edest.Times.LocationChanged) < \
-                               self._parse_ts(esrc.Times.LocationChanged) and \
+            eLocationChanged = parse_timestamp(edest.Times.LocationChanged) < \
+                               parse_timestamp(esrc.Times.LocationChanged) and \
                                (edest.getparent().UUID != esrc.getparent().UUID)
         
         cmp_lastmod = self._cmp_lastmod(edest, esrc)
@@ -444,8 +442,8 @@ class KDB4Merge(KDBMerge):
         elif cmp_lastmod == 0:
             # Same last modification time but might have different access times
             # and usage counts.
-            if self._parse_ts(edest.Times.LastAccessTime) < \
-               self._parse_ts(esrc.Times.LastAccessTime):
+            if parse_timestamp(edest.Times.LastAccessTime) < \
+               parse_timestamp(esrc.Times.LastAccessTime):
                 self.mm_ops.append((KDBMergeOps.MOPS_MOD_PROP, edest, deepcopy(edest.Times.LastAccessTime), deepcopy(esrc.Times.LastAccessTime)))
                 edest.Times.LastAccessTime._setText(esrc.Times.LastAccessTime.text)
                 if int(edest.Times.UsageCount.text) != int(esrc.Times.UsageCount.text):
@@ -554,8 +552,8 @@ class KDB4Merge(KDBMerge):
         for do in dosrc.getchildren():
             if do.UUID.text in dodest_uuids:
                 # Source deleted object exists in dest, so skip it
-                if self._parse_ts(dodest_uuids[do.UUID.text].DeletionTime) < \
-                   self._parse_ts(do.DeletionTime):
+                if parse_timestamp(dodest_uuids[do.UUID.text].DeletionTime) < \
+                   parse_timestamp(do.DeletionTime):
                     # Keep the most recent deletion time...
                     dodest_uuids[do.UUID.text].DeletionTime = do.DeletionTime
                 continue
@@ -577,8 +575,8 @@ class KDB4Merge(KDBMerge):
                 del_el = del_uuids[0]
                 if del_uuids[0].tag == 'DeletedObject':
                     del_el = del_uuids[1]
-                if self._parse_ts(del_el.Times.LastModificationTime) < \
-                   self._parse_ts(do.DeletionTime):
+                if parse_timestamp(del_el.Times.LastModificationTime) < \
+                   parse_timestamp(do.DeletionTime):
                     # If the deletion time is newer than the lastmod,
                     # the element has been deleted since its lastmod, so
                     # delete. Otherwise the element was deleted in one
@@ -606,8 +604,8 @@ class KDB4Merge(KDBMerge):
         if not el2_has_times:
             return 2
         
-        el1_modtime = self._parse_ts(el1.Times.LastModificationTime) 
-        el2_modtime = self._parse_ts(el2.Times.LastModificationTime) 
+        el1_modtime = parse_timestamp(getattr(el1.Times, "LastModificationTime"))
+        el2_modtime = parse_timestamp(getattr(el2.Times, "LastModificationTime"))
         return (el1_modtime < el2_modtime and -1) or \
                (el1_modtime > el2_modtime and 1) or 0
 
@@ -684,8 +682,8 @@ class KDB4UUIDMerge(KDB4Merge):
         
         gLocationChanged = False
         if gdest.find('./Times/LocationChanged'):
-            gLocationChanged = self._parse_ts(gdest.Times.LocationChanged) < \
-                               self._parse_ts(gsrc.Times.LocationChanged) and \
+            gLocationChanged = parse_timestamp(gdest.Times.LocationChanged) < \
+                               parse_timestamp(gsrc.Times.LocationChanged) and \
                                (gdest.getparent().UUID != gsrc.getparent().UUID)
         self._merge_group_metadata(gdest, gsrc)
         
