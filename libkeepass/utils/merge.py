@@ -5,14 +5,14 @@ from __future__ import print_function
 import sys
 import os
 import io
-import datetime
 from datetime import datetime
 from copy import deepcopy
 
 import lxml.etree
 import lxml.objectify
 
-from . import parse_timestamp
+from . import parse_timestamp, unparse_timestamp
+from .check import elem_tree_equal
 
 debugfile = sys.stderr
 
@@ -41,6 +41,10 @@ def get_root_path(elem, **kwargs):
 def get_pw_path(elem):
     "Get path of entry/group where each component is the name of the component"
     return get_root_path(elem, pfunc=pw_name)
+
+def get_uuid_path(elem):
+    "Get path of entry/group where each component is the uuid of the component"
+    return get_root_path(elem, pfunc=lambda el: el.UUID.text)
 
 
 class KDBMergeOps(object):
@@ -137,10 +141,28 @@ class KDBMerge(object):
 
 
 class KDB4Merge(KDBMerge):
-    def __init__(self, kdb_dest, kdb_src, metadata=False, debug=False):
+    # Merge Modes
+    MM_OVERWRITE_EXISTING = 1 # merge source always wins
+    MM_KEEP_EXISTING = 2 # merge dest always wins
+    MM_OVERWRITE_IF_NEWER = 3 # resolve merge conflicts by assuming the newest wins
+    MM_CREATE_NEW_UUIDS = 4 # import groups and entries with new uuids, so
+        # merging a database into itself this way will create a bunch of dups
+    MM_SYNCHRONIZE = 5 # resolve merge conflicts by assuming the newest wins and do
+        # relocations, object deletions, etc...
+    MM_SYNCHRONIZE_3WAY = 6 # same as MM_SYNCHRONIZE, but merge at a field level
+    MM_FULLAUTO = 7 # assume newest wins
+    MM_INTERACTIVE = 8 # ask the user
+    MM_DEFAULT = MM_SYNCHRONIZE
+
+    def __init__(self, kdb_dest, kdb_src, metadata=False, mode=MM_DEFAULT,
+                       debug=False):
         self.kdb_dest, self.kdb_src = kdb_dest, kdb_src
         self.metadata = metadata
+        self.mode = mode
         self.debug = debug
+        
+        if mode not in (self.MM_SYNCHRONIZE, self.MM_SYNCHRONIZE_3WAY):
+            raise NotImplementedError("Only synchronize modes implemented")
         
         assert self.__class__ != KDB4Merge, "Must use subclass of KDB4Merge"
         
@@ -361,7 +383,49 @@ class KDB4Merge(KDBMerge):
             # Newly added entry...
             self.mm_ops.append((KDBMergeOps.MOPS_ADD_ENTRY, edest))
             edest.extend(deepcopy(esrc).getchildren())
+        elif self.mode == self.MM_SYNCHRONIZE_3WAY:
+            # Only do this if edest is not a new element
+            eanctr = self._find_common_ancestor(edest, esrc)
+            cmp_lastmod_eanctr_edest = self._cmp_lastmod(eanctr, edest)
+            cmp_lastmod_eanctr_esrc = self._cmp_lastmod(eanctr, esrc)
+            assert cmp_lastmod_eanctr_edest <= 0
+            assert cmp_lastmod_eanctr_esrc <= 0
+            
+            if cmp_lastmod_eanctr_edest < 0 and cmp_lastmod_eanctr_esrc < 0:
+                if self.debug:
+                    self._debug("UUID %s has both dest and src that have been modified."%edest.UUID.text)
+                # === 3-way merge of entries ===
+                self._merge_entry_item_3way(edest, esrc, eanctr, touch=True)
+            elif cmp_lastmod_eanctr_edest < 0:
+                assert cmp_lastmod_eanctr_esrc == 0
+                if self.debug:
+                    self._debug("  Source is ancestor of dest, do nothing")
+                # source is an ancestor of dest, so we don't need to do anything
+            elif cmp_lastmod_eanctr_esrc < 0:
+                assert cmp_lastmod_eanctr_edest == 0
+                assert edest == eanctr, (edest, eanctr)
+                if self.debug:
+                    self._debug("  Dest is an ancestor of source, replace with source")
+                # dest is an ancestor of source, so replace dest with source
+                self._merge_entry_item_3way(edest, esrc, eanctr, touch=False)
+            else:
+                # dest, src, and ancestor all have same age
+                assert cmp_lastmod == 0
+                if self.debug:
+                    self._debug("  Should be same unmodified entry, except for access time")
+                # Still should copy Times if access date is newer because
+                # last access time and usage count could be different.
+                if parse_timestamp(edest.Times.LastAccessTime) < \
+                   parse_timestamp(esrc.Times.LastAccessTime):
+                    self.mm_ops.append((KDBMergeOps.MOPS_MOD_PROP, edest, deepcopy(edest.Times.LastAccessTime), deepcopy(esrc.Times.LastAccessTime)))
+                    edest.Times.LastAccessTime._setText(esrc.Times.LastAccessTime.text)
+                    if int(edest.Times.UsageCount.text) != int(esrc.Times.UsageCount.text):
+                        self.mm_ops.append((KDBMergeOps.MOPS_MOD_PROP, edest, deepcopy(edest.Times.UsageCount), deepcopy(esrc.Times.UsageCount)))
+                        edest.Times.UsageCount._setText(esrc.Times.UsageCount.text)
+            
         elif cmp_lastmod < 0:
+            # Not a 3way merge, a regular entry level merge where dest is older
+            # than source.
             # Make copy of edest to put in the History element later on
             edest_orig = deepcopy(edest)
             edest_orig_hist = edest_orig.find('./History')
@@ -404,7 +468,7 @@ class KDB4Merge(KDBMerge):
                 elif eesrc.tag == 'History':
                     pass
                 else:
-                    mchanges, mnew_elems = self._merge_metadata_item(edest, eesrc)
+                    mchanges, mnew_elems = self._merge_metadata_item_common(edest, eesrc)
                     changes += mchanges
                     new_elems += mnew_elems
             else:
@@ -458,10 +522,194 @@ class KDB4Merge(KDBMerge):
         if eLocationChanged:
             self._merge_location_change(edest, esrc)
 
-    def _merge_metadata_item(self, pdest, src):
+    def _merge_entry_item_3way(self, edest, esrc, eanctr, touch=True):
+        "Merge two entries using a common ancestor entry"
+        cmp_lastmod = self._cmp_lastmod(edest, esrc)
+        # It would be absurd if both entries were modified independently at the
+        # same second!
+        assert cmp_lastmod != 0, (edest, esrc)
+        
+        # Make copy of edest to put in the History element later on
+        edest_orig = deepcopy(edest)
+        edest_orig_hist = edest_orig.find('./History')
+        if edest_orig_hist is not None:
+            edest_orig.remove(edest_orig_hist)
+        
+        esrc_orig = deepcopy(esrc)
+        esrc_orig_hist = esrc_orig.find('./History')
+        if esrc_orig_hist is not None:
+            esrc_orig.remove(esrc_orig_hist)
+        
+        if getattr(edest, 'History', None) is None:
+            edest.append(edest.makeelement('History'))
+        
+        # start doing the merge
+        changes = []
+        new_elems = []
+        lsanctr_deletions = eanctr.findall('./String')
+        for eesrc in esrc.getchildren():
+            if eesrc.tag == 'String':
+                # Need to find String element with matching Key text
+                lsanctr = eanctr.findall("./String[Key='%s']"%eesrc.Key.text)
+                assert len(lsanctr) <= 1, (edest.UUID.text, eesrc.Key.text, kvs)
+                if len(lsanctr) == 1:
+                    lsanctr_deletions.remove(lsanctr[0])
+                # Did source make a change to this string?
+                if len(lsanctr) == 1 and eesrc.Value.text == lsanctr[0].Value.text:
+                    # source made no change, so keep dest version
+                    continue
+                
+                lsdest = edest.findall("./String[Key='%s']"%eesrc.Key.text)
+                assert len(lsdest) <= 1, (edest.UUID.text, eesrc.Key.text, lsdest)
+                
+                # Did dest make a change?
+                if len(lsdest) == 1 and lsdest[0].Value.text == eesrc.Value.text:
+                    # If source and dest are the same, do nothing
+                    continue
+                elif len(lsanctr) == 1 and len(lsdest) == 1 and lsdest[0].Value.text == lsanctr[0].Value.text:
+                    # dest did not change from ancestor, so use source version
+                    self.mm_ops.append((KDBMergeOps.MOPS_MOD_PROP, edest, deepcopy(lsdest[0]), deepcopy(eesrc)))
+                    changes.append(('~s'+eesrc.Key.text, lsdest[0].Value.text, eesrc.Value.text))
+                    lsdest[0].replace(lsdest[0].Value, deepcopy(eesrc.Value))
+                    continue
+                
+                # both source and dest values changed
+                if cmp_lastmod < 0:
+                    # source was modified last
+                    if len(lsdest) == 0:
+                        # dest does not have this key, so add it
+                        eesrc_copy = deepcopy(eesrc)
+                        changes.append(('+s'+eesrc.Key.text, None, eesrc.Value.text))
+                        self.mm_ops.append((KDBMergeOps.MOPS_ADD_PROP, edest, eesrc_copy))
+                        # Try to add after last String, then after Times,
+                        # then before History, else at the end.
+                        try:
+                            edest.String[-1].addnext(eesrc_copy)
+                        except AttributeError:
+                            try:
+                                edest.Times.addnext(eesrc_copy)
+                            except AttributeError:
+                                try:
+                                    edest.History.addprevious(eesrc_copy)
+                                except AttributeError:
+                                    edest.append(eesrc_copy)
+                    else:
+                        # dest does have key, so update value
+                        self.mm_ops.append((KDBMergeOps.MOPS_MOD_PROP, edest, deepcopy(lsdest[0]), deepcopy(eesrc)))
+                        changes.append(('~s'+eesrc.Key.text, lsdest[0].Value.text, eesrc.Value.text))
+                        lsdest[0].Value._setText(eesrc.Value.text)
+                #~ else: # dest was modified last, do nothing
+            elif eesrc.tag == 'History':
+                # Already dealt with History
+                pass
+            else:
+                # Merge in the non special cases
+                mchanges, mnew_elems = self._merge_metadata_item_3way_common(edest, eesrc, eanctr, cmp_lastmod)
+                changes += mchanges
+                new_elems += mnew_elems
+        else:
+            # Add new subelements to the end
+            edest.extend(new_elems)
+        
+        if changes:
+            if touch:
+                # There were changes and we want to update the timestamps
+                self._touch(edest, True)
+            
+            if self.debug:
+                self._debug("Differing Entry [%s]%s"%(edest.UUID.text, get_pw_path(edest)))
+                for tag, cdest, csrc in changes:
+                    self._debug("  %s: %r <-- %r"%(tag, cdest, csrc))
+        
+        if edest == eanctr:
+            # edest is ancestor of source, which means that edest should be
+            # changed into source now. And edest is in the source history,
+            # which will get merged later. So do nothing.
+            pass
+        # Add source and dest to dest history if needed
+        elif cmp_lastmod < 0:
+            # If dest is older than src
+            edest.History.extend([edest_orig, esrc_orig])
+        elif cmp_lastmod > 0:
+            # If src is older than dest, put it in the right place in the
+            # history list.
+            for ehdest in edest.History.getchildren()[::-1]:
+                if self._cmp_lastmod(ehdest, esrc_orig) < 0:
+                    ehdest.addnext(esrc_orig)
+                    break
+            edest.History.extend([edest_orig])
+        # Sanity checks...
+        if len(edest.History.getchildren()) > 2:
+            assert edest_orig.Times.LastModificationTime > edest.History.getchildren()[-3].Times.LastModificationTime
+            assert esrc_orig.Times.LastModificationTime > edest.History.getchildren()[-3].Times.LastModificationTime
+        
+        # Handle String deletions
+        for anctr_del in lsanctr_deletions:
+            if cmp_lastmod < 0:
+                # source is newer, but didn't have this string, so source
+                # must have deleted it, so delete in dest
+                lsdest = edest.findall("./String[Key='%s']"%anctr_del.Key.text)
+                assert len(lsdest) <= 1, (edest.UUID.text, anctr_del.Key.text, lsdest)
+                if len(lsdest) == 1:
+                    self.mm_ops.append((KDBMergeOps.MOPS_DEL_PROP, edest, deepcopy(lsdest[0])))
+                    edest.remove(lsdest[0])
+                    if self.debug:
+                        self._debug("[%s] Removing String key %s"%(edest.UUID.text, anctr_del.Key.text))
+        
+
+    def _merge_metadata_item_3way_common(self, pdest, src, panctr, cmp_lastmod):
         "Merge metadata items that do not need special attention"
         # Assume that no elements have both subelements and inner text
         # Also assume that there can not be deletions of items...
+        changes = []
+        new_elems = []
+        dest = getattr(pdest, src.tag, None)
+        anctr = getattr(panctr, src.tag, None)
+        src_copy = deepcopy(src)
+        
+        # common predicates
+        has_dest = (dest is not None)
+        has_anctr = (anctr is not None)
+        src_newer = (cmp_lastmod < 0)
+        
+        # Assert this for now because the only elements of and entry that can
+        # be deleted or added are extra Strings
+        # Maybe not true, if later version of KeePass removes depreciated
+        # elements.
+        assert has_anctr
+        
+        if has_dest and elem_tree_equal(src, dest):
+            # source and dest are the same, so do nothing
+            pass
+        elif elem_tree_equal(src, anctr):
+            # source not modified, use dest unchanged
+            if not has_dest:
+                # unless there is no dest, in which case use source
+                self.mm_ops.append((KDBMergeOps.MOPS_ADD_PROP, pdest, src_copy))
+                new_elems.append(src_copy)
+                changes.append(('~+'+src.tag, '', lxml.etree.tostring(src)))
+        elif cmp_lastmod < 0:
+            # source was modified, and source newer than dest
+            if not has_dest:
+                # No dest, so just append to dest parent
+                self.mm_ops.append((KDBMergeOps.MOPS_ADD_PROP, pdest, src_copy))
+                new_elems.append(src_copy)
+                changes.append(('~+'+src.tag, '', lxml.etree.tostring(src)))
+            else:
+                # have dest, but its older, so use source
+                self.mm_ops.append((KDBMergeOps.MOPS_MOD_PROP, pdest, deepcopy(dest), src_copy))
+                pdest.replace(dest, src_copy)
+                if elem_tree_equal(dest, anctr):
+                    # dest was modified too
+                    changes.append(('~-'+src.tag, '', lxml.etree.tostring(dest)))
+                changes.append(('~+'+src.tag, '', lxml.etree.tostring(src)))
+        #~ else: # source modified, but older or same age as dest
+        
+        return (changes, new_elems)
+    
+    def _merge_metadata_item_common(self, pdest, src, anctr=None):
+        "Merge metadata items that do not need special attention"
+        # Assume that no elements have both subelements and inner text
         changes = []
         new_elems = []
         dest = getattr(pdest, src.tag, None)
@@ -596,7 +844,56 @@ class KDB4Merge(KDBMerge):
                         self._debug("Deleting deleted object '%s' at time %s"% \
                                    (del_el.UUID.text, do.DeletionTime.text))
 
-    def _cmp_lastmod(self, el1, el2):
+    def _find_common_ancestor(self, edest, esrc):
+        "Find most recent common historical ancestor to two entries."
+        # Common ancestors are defined solely by having history items with
+        # matching timestamps.  Entries with matching timestamps are assumed
+        # to be identical.
+        # Must only be used on the same element
+        assert edest.UUID.text == esrc.UUID.text, (edest.UUID.text, esrc.UUID.text)
+        cmp_lastmod = self._cmp_lastmod(edest, esrc)
+        if cmp_lastmod == 0:
+            # No modifications, they should be the same
+            return edest
+        
+        edesthist = getattr(edest, 'History', None)
+        if edesthist is None:
+            edesthist = [edest]
+        else:
+            edesthist = (edesthist.getchildren()) + [edest]
+        
+        esrchist = getattr(esrc, 'History', None)
+        if edesthist is None:
+            esrchist = [esrc]
+        else:
+            esrchist = (esrchist.getchildren()) + [esrc]
+        
+        curdesthist = edesthist[0]
+        cursrchist  = esrchist[0]
+        # The earliest item in the history should be the same, ie the original
+        # entry.  However if it was converted from KBD3 format, this may not be
+        # true.  But that breaks all assumptions, so fail for now.
+        assert self._cmp_lastmod(curdesthist, cursrchist) == 0, (curdesthist, cursrchist)
+        
+        
+        while edesthist and esrchist:
+            cmp_lastmod = self._cmp_lastmod(edesthist[0], esrchist[0])
+            if cmp_lastmod == 0:
+                curdesthist = edesthist.pop(0)
+                cursrchist = esrchist.pop(0)
+            else:
+                break
+        return curdesthist
+
+    def _touch(self, el, lastmod=True):
+        "Set timestamp to now"
+        modtime_str = unparse_timestamp(datetime.utcnow())
+        if lastmod:
+            el.Times.LastModificationTime._setText(modtime_str)
+        el.Times.LastAccessTime._setText(modtime_str)
+        el.Times.UsageCount._setText(str(int(el.Times.UsageCount)+1))
+
+    def _cmp_lastmod(self, el1, el2, tag='LastModificationTime'):
         "Compare el1 and el2 by the last modification time"
         el1_has_times = el1.find('./Times') is not None
         el2_has_times = el2.find('./Times') is not None
@@ -606,8 +903,8 @@ class KDB4Merge(KDBMerge):
         if not el2_has_times:
             return 2
         
-        el1_modtime = parse_timestamp(getattr(el1.Times, "LastModificationTime"))
-        el2_modtime = parse_timestamp(getattr(el2.Times, "LastModificationTime"))
+        el1_modtime = parse_timestamp(getattr(el1.Times, tag))
+        el2_modtime = parse_timestamp(getattr(el2.Times, tag))
         return (el1_modtime < el2_modtime and -1) or \
                (el1_modtime > el2_modtime and 1) or 0
 
