@@ -14,6 +14,8 @@ import lxml.objectify
 
 from . import parse_timestamp
 
+debugfile = sys.stderr
+
 
 def pw_name(el):
     assert el.tag in ('Entry', 'Group'), el
@@ -130,7 +132,7 @@ class KDBMerge(object):
     @debug.setter
     def debug(self, val):
         if val is True:
-            val = sys.stderr
+            val = debugfile
         self.__debug = val
 
 
