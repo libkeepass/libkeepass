@@ -59,12 +59,12 @@ class KDBMergeOps(object):
         self.ops.append(op)
     
     def __str__(self):
-        file = io.StringIO()
+        sio = io.StringIO()
         if not self.ops:
-            return "Merge made no changes\n"
+            return u"Merge made no changes\n"
         
         prev_el = None
-        print("Merge changes:", file=file)
+        print(u"Merge changes:", file=sio)
         for op in self.ops:
             opcode, vals = op[0], op[1:]
             
@@ -72,44 +72,44 @@ class KDBMergeOps(object):
                 # If the header for this element hasn't been printed yet,
                 # then print it for certain merge ops.
                 if opcode in (self.MOPS_ADD_PROP, self.MOPS_MOD_PROP, self.MOPS_DEL_PROP, self.MOPS_MOD_META_PROP):
-                    print(" ~[{}:{}]{}".format(vals[0].tag, vals[0].UUID.text, get_pw_path(vals[0])), file=file)
+                    print(u" ~[{}:{}]{}".format(vals[0].tag, vals[0].UUID.text, get_pw_path(vals[0])), file=sio)
         
             if opcode == self.MOPS_MOVE:
-                print(" >[{}:{}]{}".format(vals[0].tag, vals[0].UUID.text, vals[1]), file=file)
-                print("        ->", get_pw_path(vals[0]), file=file)
+                print(u" >[{}:{}]{}".format(vals[0].tag, vals[0].UUID.text, vals[1]), file=sio)
+                print(u"        -> " + get_pw_path(vals[0]), file=sio)
             elif opcode == self.MOPS_ADD_GROUP:
-                print(" +[Group:{}]{}".format(vals[0].UUID.text, get_pw_path(vals[0])), file=file)
+                print(u" +[Group:{}]{}".format(vals[0].UUID.text, get_pw_path(vals[0])), file=sio)
             elif opcode == self.MOPS_ADD_ENTRY:
-                print(" +[Entry:{}]{}".format(vals[0].UUID.text, get_pw_path(vals[0])), file=file)
+                print(u" +[Entry:{}]{}".format(vals[0].UUID.text, get_pw_path(vals[0])), file=sio)
             elif opcode == self.MOPS_ADD_PROP:
                 if vals[1].tag == 'String':
-                    print("    +{} = {!r}".format(vals[1].Key.text, vals[1].Value.text), file=file)
+                    print(u"    +{} = {!r}".format(vals[1].Key.text, vals[1].Value.text), file=sio)
                 else:
-                    print("    +{} = {!r}".format(vals[1].tag, lxml.etree.tostring(vals[1])), file=file)
+                    print(u"    +{} = {!r}".format(vals[1].tag, lxml.etree.tostring(vals[1])), file=sio)
             elif opcode == self.MOPS_MOD_PROP:
                 oldprop, newprop = vals[1:]
                 if oldprop.tag == 'String':
-                    print("    ~{}: {!r} -> {!r}".format(oldprop.Key.text, oldprop.Value.text, newprop.Value.text), file=file)
+                    print(u"    ~{}: {!r} -> {!r}".format(oldprop.Key.text, oldprop.Value.text, newprop.Value.text), file=sio)
                 else:
-                    print("    ~{}: {!r} -> {!r}".format(oldprop.tag, oldprop.text, newprop.text), file=file)
+                    print(u"    ~{}: {!r} -> {!r}".format(oldprop.tag, oldprop.text, newprop.text), file=sio)
             elif opcode == self.MOPS_MOD_META_PROP:
-                print("    ~{}: {} -> {}".format(*vals[1:]), file=file)
+                print(u"    ~{}: {} -> {}".format(*vals[1:]), file=sio)
             elif opcode == self.MOPS_DEL_GROUP:
-                print(" -[Group:{}]{}  <{}>".format(vals[0].UUID.text, vals[1], vals[2]), file=file)
+                print(u" -[Group:{}]{}  <{}>".format(vals[0].UUID.text, vals[1], vals[2]), file=sio)
             elif opcode == self.MOPS_DEL_ENTRY:
-                print(" -[Entry:{}]{}  <{}>".format(vals[0].UUID.text, vals[1], vals[2]), file=file)
+                print(u" -[Entry:{}]{}  <{}>".format(vals[0].UUID.text, vals[1], vals[2]), file=sio)
             elif opcode == self.MOPS_DEL_PROP:
                 if vals[1].tag == 'String':
-                    print("    -{} ".format(vals[1].Key.text), file=file)
+                    print(u"    -{} ".format(vals[1].Key.text), file=sio)
                 else:
-                    print("    -{} ".format(vals[1].tag), file=file)
+                    print(u"    -{} ".format(vals[1].tag), file=sio)
             elif opcode == self.MOPS_ADD_HISTORY:
-                print(" +[{}]{} Add history {}".format(vals[0].UUID.text, get_pw_path(vals[0]), vals[1].Times.LastModificationTime), file=file)
+                print(u" +[{}]{} Add history {}".format(vals[0].UUID.text, get_pw_path(vals[0]), vals[1].Times.LastModificationTime), file=sio)
                 
             else:
                 raise Exception("Unknown merge opcode %r"%opcode)
             prev_el = vals[0]
-        return file.getvalue()
+        return sio.getvalue()
 
 
 class KDBMerge(object):
