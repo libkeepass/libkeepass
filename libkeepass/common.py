@@ -231,9 +231,7 @@ class KDBFile(object):
 
     def merge(self, other):
         """Merges the other file into this one."""
-        if self._parse(self.obj_root.Meta.DatabaseNameChanged) < self._parse(other.obj_root):
-            self.obj_root.Meta.DatebaseName = other.obj_root.Meta.DatabaseName
-            self.obj_root.Meta.DatebaseNameChanged = other.obj_root.Meta.DatabaseNameChanged
+        raise NotImplementedError('The merge() method should be implemented in derived classes.')
 
     @staticmethod
     def _parse(date_text):

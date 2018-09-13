@@ -17,6 +17,7 @@ from libkeepass.common import IS_PYTHON_3, load_keyfile, stream_unpack
 
 from libkeepass.common import KDBFile, HeaderDictionary
 from libkeepass.hbio import HashedBlockIO
+from libkeepass.utils.merge import KDB4UUIDMerge
 
 
 KDB4_SALSA20_IV = bytes(bytearray.fromhex('e830094b97205d2a'))
@@ -455,4 +456,10 @@ class KDB4Reader(KDB4File, KDBXmlExtension):
         if use_etree:
             KDBXmlExtension.write_to(self, stream)
         KDB4File.write_to(self, stream)
+
+    def merge(self, other, *args, **kwargs):
+        "Merge another database into this one."
+        kdbm = KDB4UUIDMerge(self, other, *args, **kwargs)
+        kdbm.merge()
+        return kdbm
 
