@@ -161,8 +161,12 @@ class KDB4Merge(KDBMerge):
         self.mode = mode
         self.debug = debug
         
-        if mode not in (self.MM_SYNCHRONIZE, self.MM_SYNCHRONIZE_3WAY):
-            raise NotImplementedError("Only synchronize modes implemented")
+        supported_modes = (
+            self.MM_OVERWRITE_IF_NEWER,
+            self.MM_SYNCHRONIZE,
+            self.MM_SYNCHRONIZE_3WAY)
+        if mode not in supported_modes:
+            raise NotImplementedError("Mode %s is not supported"%mode)
         
         assert self.__class__ != KDB4Merge, "Must use subclass of KDB4Merge"
         
@@ -519,7 +523,7 @@ class KDB4Merge(KDBMerge):
         # Always merge history
         self._merge_history(edest, esrc.History)
         
-        if eLocationChanged:
+        if eLocationChanged and (self.mode in (self.MM_SYNCHRONIZE, self.MM_SYNCHRONIZE_3WAY)):
             self._merge_location_change(edest, esrc)
 
     def _merge_entry_item_3way(self, edest, esrc, eanctr, touch=True):
@@ -969,7 +973,8 @@ class KDB4UUIDMerge(KDB4Merge):
                 for uuid, el in self.__dest_uuids_remaining_map.items():
                     self._debug(" *<{}>[{}]".format(el.tag,uuid), get_pw_path(el))
         
-        self._merge_deleted_objects(rdest, rsrc)
+        if self.mode in (self.MM_SYNCHRONIZE, self.MM_SYNCHRONIZE_3WAY):
+            self._merge_deleted_objects(rdest, rsrc)
         
         del self.__dest_uuid_map
 
@@ -1016,7 +1021,7 @@ class KDB4UUIDMerge(KDB4Merge):
             
             self.debug = old_debug
         
-        if gLocationChanged:
+        if gLocationChanged and (self.mode in (self.MM_SYNCHRONIZE, self.MM_SYNCHRONIZE_3WAY)):
             self._merge_location_change(gdest, gsrc)
     
     def _merge_location_change(self, dest, src):
