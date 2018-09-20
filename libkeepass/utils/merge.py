@@ -242,9 +242,9 @@ class KDB4Merge(KDBMerge):
                 if self.debug:
                     self._debug("DB Meta Field <{}>: '{}' <-- '{}'".format(ts_field, getattr(mdest, ts_field), getattr(msrc, ts_field)))
         
-        # Don't know how to merge binary or customdata...
-        assert not mdest.Binaries, mdest.Binaries
-        assert not mdest.CustomData, mdest.CustomData
+        if mdest.Binaries or mdest.CustomData:
+            # Don't know how to merge binary or customdata...
+            raise NotImplementedError("Merging Binaries or CustomData has not been implemented.")
 
     def _merge_roots(self):
         "Merge Root elements"
