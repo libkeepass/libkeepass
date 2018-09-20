@@ -10,7 +10,6 @@ import libkeepass
 import libkeepass.common
 import libkeepass.kdb4
 import libkeepass.kdb3
-import six
 
 
 from libkeepass.crypto import sha256, transform_key, xor, pad
@@ -20,6 +19,12 @@ from libkeepass.crypto import Salsa20
 
 from . import get_datafile
 
+
+def assertRaisesRegex(tcase, *args, **kwargs):
+    "Compatibility layer between python2/3"
+    if hasattr(tcase, 'assertRaisesRegex'):
+        return tcase.assertRaisesRegex(*args, **kwargs)
+    return tcase.assertRaisesRegexp(*args, **kwargs)
 
 class TextCrypto(unittest.TestCase):
     def test_sha256(self):
@@ -107,17 +112,17 @@ class TestModule(unittest.TestCase):
         self.assertEqual(libkeepass.get_kdb_reader([0x9AA2D903, 0xB54BFB67]), libkeepass.kdb4.KDB4Reader)
 
         # mythical pre2.x signature
-        with six.assertRaisesRegex(self, IOError, "Unknown sub signature."):
+        with assertRaisesRegex(self, IOError, "Unknown sub signature."):
             libkeepass.get_kdb_reader([0x9AA2D903, 0xB54BFB66, 3, 0])
 
         # unknown sub signature
-        with six.assertRaisesRegex(self, IOError, "Unknown sub signature."):
+        with assertRaisesRegex(self, IOError, "Unknown sub signature."):
             libkeepass.get_kdb_reader([0x9AA2D903, 0xB54BFB60, 3, 0])
         # valid sub signature, unknown base signature
-        with six.assertRaisesRegex(self, IOError, "Unknown base signature."):
+        with assertRaisesRegex(self, IOError, "Unknown base signature."):
             libkeepass.get_kdb_reader([0x9AA2D900, 0xB54BFB65, 3, 0])
         # unknown sub signature, unknown base signature
-        with six.assertRaisesRegex(self, IOError, "Unknown base signature."):
+        with assertRaisesRegex(self, IOError, "Unknown base signature."):
             libkeepass.get_kdb_reader([0x9AA2D900, 0xB54BFB60, 3, 0])
 
 
@@ -232,9 +237,9 @@ class TestKDB4(unittest.TestCase):
     def test_class_interface(self):
         """Test direct KDB4Reader class usage"""
         kdb = libkeepass.kdb4.KDB4Reader()
-        with six.assertRaisesRegex(self, TypeError, "Stream does not have the buffer interface."):
+        with assertRaisesRegex(self, TypeError, "Stream does not have the buffer interface."):
             kdb.read_from(absfile1)
-        with six.assertRaisesRegex(self, IndexError, "No credentials found."):
+        with assertRaisesRegex(self, IndexError, "No credentials found."):
             with open(absfile1, 'rb') as fh:
                 kdb.read_from(fh)
         kdb.add_credentials(password='asdf')
@@ -267,19 +272,19 @@ class TestKDB4(unittest.TestCase):
 
     def test_open_file(self):
         # file not found, proper exception gets re-raised
-        with six.assertRaisesRegex(self, IOError, "No such file or directory"):
+        with assertRaisesRegex(self, IOError, "No such file or directory"):
             with libkeepass.open(absfile1 + '.invalid', password="asdf"):
                 pass
         # invalid password
-        with six.assertRaisesRegex(self, IndexError, "No credentials found."):
+        with assertRaisesRegex(self, IndexError, "No credentials found."):
             with libkeepass.open(absfile1):
                 pass
         # invalid password
-        with six.assertRaisesRegex(self, IOError, "Master key invalid."):
+        with assertRaisesRegex(self, IOError, "Master key invalid."):
             with libkeepass.open(absfile1, password="invalid"):
                 pass
         # invalid keyfile
-        with six.assertRaisesRegex(self, IOError, "Master key invalid."):
+        with assertRaisesRegex(self, IOError, "Master key invalid."):
             with libkeepass.open(absfile1, password="invalid", keyfile="invalid"):
                 pass
 

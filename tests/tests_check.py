@@ -7,7 +7,6 @@ import warnings
 import copy
 
 import libkeepass.utils.check
-import six
 import lxml.etree
 import lxml.objectify
 

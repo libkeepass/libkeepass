@@ -14,7 +14,6 @@ import libkeepass.kdb3
 import libkeepass.utils
 import libkeepass.utils.merge
 import libkeepass.utils.check
-import six
 import lxml.etree
 
 from . import get_datafile
