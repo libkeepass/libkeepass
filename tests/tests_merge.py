@@ -5,6 +5,7 @@ import datetime
 import unittest
 import warnings
 import copy
+import contextlib
 
 import libkeepass
 import libkeepass.common
@@ -30,7 +31,56 @@ kdbf_t2 = get_datafile('sample_merge-t0-t2.kdbx')
 def pretty_print_xml(el):
     return lxml.etree.tostring(el, pretty_print=True, encoding='utf-8', standalone=True)
 
-class TestKDB4UUIDMergeHistory(unittest.TestCase):
+# subTest was introduced in python 3.4. This just creates a dummy subtest to
+# allow the tests to run.  When there is a failure in the dummy subtest it will
+# be slightly more difficult to determine which subtest case caused the failure
+class TestCaseCompat(unittest.TestCase):
+    def subTest(self, *args, **kwargs):
+        if hasattr(unittest.TestCase, 'subTest'):
+            return super().subTest(*args, **kwargs)
+        else:
+            def donothing(*args, **kwargs):
+                yield
+            return contextlib.contextmanager(donothing)()
+
+class TestKDB4UUIDFindAncestor(TestCaseCompat):
+    def setUp(self):
+        self.kdb_orig = libkeepass.open(kdbf_t0, password="qwerty")
+        self.kdbm = libkeepass.utils.merge.KDB4UUIDMerge(self.kdb_orig, self.kdb_orig, debug=False)
+        uuid = 'spHmZwBbGUuqvbi/mVCknw=='
+        self.entry = self.kdb_orig.obj_root.find(".//Entry[UUID='"+uuid+"']")
+        
+        # Add some more history elements
+        self.entry.History.clear()
+        n = 10
+        for i in range(n):
+            ce = copy.deepcopy(self.entry)
+            ce.remove(ce.History)
+            modtime = libkeepass.utils.parse_timestamp(ce.Times.LastModificationTime.text)
+            modtime_str = "{:%Y-%m-%dT%H:%M:%S}Z".format(modtime - datetime.timedelta(n-i-1, 60))
+            ce.Times.LastModificationTime._setText(modtime_str)
+            self.entry.History.append(ce)
+        
+        self.entry2 = copy.deepcopy(self.entry)
+    
+    def tearDown(self):
+        self.kdb_orig.close()
+    
+    def test_find_ancestor(self):
+        "Test finding ancestors."
+        new_src = self.entry.History.Entry[4]
+        new_src.append(new_src.makeelement('History'))
+        for ehsrc in self.entry.History.Entry[:4]:
+            new_src.History.append(copy.deepcopy(ehsrc))
+        
+        ancstr = self.kdbm._find_common_ancestor(self.entry, new_src)
+        self.assertEqual(ancstr, new_src)
+        
+        ancstr = self.kdbm._find_common_ancestor(new_src, self.entry)
+        self.assertEqual(ancstr, new_src)
+
+
+class TestKDB4UUIDMergeHistory(TestCaseCompat):
     def setUp(self):
         self.kdb_orig = libkeepass.open(kdbf_t0, password="qwerty")
         self.kdbm = libkeepass.utils.merge.KDB4UUIDMerge(self.kdb_orig, self.kdb_orig, debug=False)
@@ -113,59 +163,70 @@ class TestKDB4UUIDMergeHistory(unittest.TestCase):
     
     def test_merge_src_is_ansctr_dest(self):
         "Test merging where source is ancestor of dest."
-        entry_copy = copy.deepcopy(self.entry)
-        new_src = copy.deepcopy(self.entry.History.Entry[4])
-        new_src.append(new_src.makeelement('History'))
-        for ehsrc in self.entry.History.Entry[:4]:
-            new_src.History.append(copy.deepcopy(ehsrc))
-        
-        self.kdbm._merge_entry(entry_copy, new_src)
-        self.assertEqual(self.get_history_lastmod_list(entry_copy),
-                         self.get_history_lastmod_list(self.entry))
-        self.assertNotEqual(self.get_history_lastmod_list(entry_copy),
-                            self.get_history_lastmod_list(new_src))
+        for mode in (self.kdbm.MM_SYNCHRONIZE, self.kdbm.MM_SYNCHRONIZE_3WAY):
+            with self.subTest(mode=mode):
+                entry_copy = copy.deepcopy(self.entry)
+                new_src = copy.deepcopy(self.entry.History.Entry[4])
+                new_src.append(new_src.makeelement('History'))
+                for ehsrc in self.entry.History.Entry[:4]:
+                    new_src.History.append(copy.deepcopy(ehsrc))
+                
+                self.kdbm.mode = mode
+                self.kdbm._merge_entry(entry_copy, new_src)
+                self.assertEqual(self.get_history_lastmod_list(entry_copy),
+                                 self.get_history_lastmod_list(self.entry))
+                self.assertNotEqual(self.get_history_lastmod_list(entry_copy),
+                                    self.get_history_lastmod_list(new_src))
     
     def test_merge_dest_is_ansctr_src(self):
         "Test merging where dest is ancestor of source."
-        prev_hist_list = self.get_history_lastmod_list(self.entry)
-        new_src = copy.deepcopy(self.entry.History.Entry[4])
-        new_src.append(new_src.makeelement('History'))
-        for ehsrc in self.entry.History.Entry[:4]:
-            new_src.History.append(copy.deepcopy(ehsrc))
-        
-        self.kdbm._merge_entry(new_src, self.entry)
-        self.assertEqual(self.get_history_lastmod_list(self.entry),
-                         prev_hist_list)
-        self.assertEqual(self.get_history_lastmod_list(self.entry),
-                         self.get_history_lastmod_list(new_src))
+        for mode in (self.kdbm.MM_SYNCHRONIZE, self.kdbm.MM_SYNCHRONIZE_3WAY):
+            with self.subTest(mode=mode):
+                prev_hist_list = self.get_history_lastmod_list(self.entry)
+                new_src = copy.deepcopy(self.entry.History.Entry[4])
+                new_src.append(new_src.makeelement('History'))
+                for ehsrc in self.entry.History.Entry[:4]:
+                    new_src.History.append(copy.deepcopy(ehsrc))
+                
+                self.kdbm.mode = mode
+                self.kdbm._merge_entry(new_src, self.entry)
+                self.assertEqual(self.get_history_lastmod_list(self.entry),
+                                 prev_hist_list)
+                self.assertEqual(self.get_history_lastmod_list(self.entry),
+                                 self.get_history_lastmod_list(new_src))
     
     def test_merge_src_has_extra_history(self):
         "Test merging where source has extra history not in dest."
-        dest, src = copy.deepcopy(self.entry), copy.deepcopy(self.entry)
-        expected_hist_list = self.get_history_lastmod_list(dest)
-        
-        src_tmp = src.History.Entry[-1]
-        src.History.remove(src_tmp)
-        src_tmp.append(src.History)
-        src = src_tmp
-        src.History.remove(src.History.Entry[6])
-        src.History.remove(src.History.Entry[5])
-        src.History.remove(src.History.Entry[4])
-        
-        dest.History.remove(dest.History.Entry[9])
-        dest.History.remove(dest.History.Entry[8])
-        dest.History.remove(dest.History.Entry[7])
-        dest.History.remove(dest.History.Entry[6])
-        expected_hist_list.pop(6)
-        
-        self.kdbm._merge_entry(dest, src)
-        self.assertEqual(self.get_history_lastmod_list(dest),
-                         expected_hist_list)
-        self.assertNotEqual(self.get_history_lastmod_list(dest),
-                            self.get_history_lastmod_list(src))
+        for mode in (self.kdbm.MM_SYNCHRONIZE, self.kdbm.MM_SYNCHRONIZE_3WAY):
+            with self.subTest(mode=mode):
+                dest, src = copy.deepcopy(self.entry), copy.deepcopy(self.entry)
+                expected_hist_list = self.get_history_lastmod_list(dest)
+                
+                src_tmp = src.History.Entry[-1]
+                src.History.remove(src_tmp)
+                src_tmp.append(src.History)
+                src = src_tmp
+                src.History.remove(src.History.Entry[6])
+                src.History.remove(src.History.Entry[5])
+                src.History.remove(src.History.Entry[4])
+                
+                dest.History.remove(dest.History.Entry[9])
+                dest.History.remove(dest.History.Entry[8])
+                dest.History.remove(dest.History.Entry[7])
+                dest.History.remove(dest.History.Entry[6])
+                expected_hist_list.pop(6)
+                if mode == self.kdbm.MM_SYNCHRONIZE_3WAY:
+                    expected_hist_list.append(dest.Times.LastModificationTime)
+                
+                self.kdbm.mode = mode
+                self.kdbm._merge_entry(dest, src)
+                self.assertEqual(self.get_history_lastmod_list(dest),
+                                 expected_hist_list)
+                self.assertNotEqual(self.get_history_lastmod_list(dest),
+                                    self.get_history_lastmod_list(src))
 
 
-class TestKDB4UUIDMergeDeletions(unittest.TestCase):
+class TestKDB4UUIDMergeDeletions(TestCaseCompat):
     def setUp(self):
         self.kdb_orig = libkeepass.open(kdbf_t0, password="qwerty")
         self.kdb_dest = libkeepass.open(kdbf_t0, password="qwerty")
@@ -212,7 +273,7 @@ class TestKDB4UUIDMergeDeletions(unittest.TestCase):
                          self.get_uuids(self.kdb_dest))
     
 
-class TestKDB4UUIDMergeTrivial(unittest.TestCase):
+class TestKDB4UUIDMergeTrivial(TestCaseCompat):
     def test_merge_self(self):
         """Test direct KDB4Reader class usage"""
         with libkeepass.open(kdbf_t0, password="qwerty") as kdb_dest, \
@@ -243,7 +304,7 @@ class TestKDB4UUIDMergeTrivial(unittest.TestCase):
             self.assertTrue(is_eq, msg="KDB not equal: %r"%(eq.error.msg,))
 
 
-class TestKDB4UUIDMergeT1(unittest.TestCase):
+class TestKDB4UUIDMergeT1(TestCaseCompat):
     def setUp(self):
         self.kdb_dest = libkeepass.open(kdbf_t0, password="qwerty", unprotect=True)
         self.kdb_src  = libkeepass.open(kdbf_t1, password="qwerty", unprotect=True)
@@ -297,7 +358,7 @@ class TestKDB4UUIDMergeT1(unittest.TestCase):
         self.assertTrue(is_eq, msg="KDB not equal: %r"%(eq.error.msg,))
 
 
-class TestKDB4UUIDMergeT1T2(unittest.TestCase):
+class TestKDB4UUIDMergeT1T2(TestCaseCompat):
     def setUp(self):
         self.kdb_dest = libkeepass.open(kdbf_t1, password="qwerty")
         self.kdb_src  = libkeepass.open(kdbf_t2, password="qwerty")
@@ -307,6 +368,14 @@ class TestKDB4UUIDMergeT1T2(unittest.TestCase):
         self.kdb_src.close()
     
     def test_merge_t2_into_t1(self):
+        "Test merging t2 into t1."
+        self._test_merge_t2_into_t1(False)
+    
+    def test_merge_t2_into_t1(self):
+        "Test 3way merging t2 into t1, that is merging per field."
+        self._test_merge_t2_into_t1(True)
+    
+    def _test_merge_t2_into_t1(self, merge_3way):
         "Test merging t2 into t1."
         eq = libkeepass.utils.check.KDBEqual(ignore_times=True)
         kdb_dest = self.kdb_dest
@@ -319,7 +388,10 @@ class TestKDB4UUIDMergeT1T2(unittest.TestCase):
         uuid = 'lG18b6Y1DUyp9bKzoFTBfA=='
         prev_edest2 = copy.deepcopy(kdb_dest.obj_root.find(".//Entry[UUID='%s']"%uuid))
         
-        kdbm = libkeepass.utils.merge.KDB4UUIDMerge(kdb_dest, kdb_src, debug=False)
+        mode = libkeepass.utils.merge.KDB4UUIDMerge.MM_SYNCHRONIZE
+        if merge_3way:
+            mode = libkeepass.utils.merge.KDB4UUIDMerge.MM_SYNCHRONIZE_3WAY
+        kdbm = libkeepass.utils.merge.KDB4UUIDMerge(kdb_dest, kdb_src, mode=mode, debug=False)
         kdbm.merge()
         
         # Added entry
