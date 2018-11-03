@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import sys
+import codecs
 
 IS_PYTHON_3 = sys.hexversion >= 0x3000000
 
@@ -289,9 +290,13 @@ def load_plain_keyfile(filename):
         # if the length is 32 bytes we assume it is the key
         if len(key) == 32:
             return key
-        # if the length is 64 bytes we assume the key is hex encoded
-        if len(key) == 64:
-            return key.decode('hex')
+        # if the length is 64 bytes and hexadecimal characters, we assume the key is hex encoded
+        try:
+            int(key, 16)
+            if len(key) == 64:
+                return codecs.decode(key, 'hex')
+        except ValueError:
+            pass
         # anything else may be a file to hash for the key
         return sha256(key)
     raise IOError('Could not read keyfile.')

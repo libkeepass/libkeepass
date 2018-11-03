@@ -228,6 +228,9 @@ keyfile5 = get_datafile('sample3_keyfile.exe')
 absfile6 = get_datafile('sample8_twofish.kdbx')
 # created with KeePass 2.38 on linux encrypted with chacha20
 absfile7 = get_datafile('sample9_chacha20.kdbx')
+# db with 64 byte hex key
+absfile8 = get_datafile('sample_hex.kdbx')
+keyfile8 = get_datafile('sample_hex.key')
 
 output1 = get_datafile('output1.kdbx')
 output4 = get_datafile('output4.kdbx')
@@ -366,6 +369,10 @@ class TestKDB4(unittest.TestCase):
             self.assertEqual(kdb.opened, True)
             self.assertEqual(libkeepass.kdb4.KDB4Header.ciphers[kdb.header.CipherID],
                              "Chacha20")
+
+        with libkeepass.open(absfile8, password="asdf", keyfile=keyfile8) as kdb:
+            self.assertIsNotNone(kdb)
+            self.assertEqual(kdb.opened, True)
 
 
 class TestKDB3(unittest.TestCase):
