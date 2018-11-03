@@ -67,6 +67,31 @@ databases will work as normal.
 Currently the Argon2 key derivation algorithm and ChaCha20 protected passwords
 are unsupported.
 
+Merging/Synchronizing databases is also supported.  Currently only the
+synchronize and "overwrite if newer" modes are supported. 
+
+Merging
+-------
+
+Currently 3 merge modes are supported:
+
+* **OVERWRITE_IF_NEWER** -- Entries are updated if there is a newer one in the
+  KDB being merged with and the previous entry is added to the entry history.
+  No Entry relocations nor deletions are done.
+* **SYNCHRONIZE** - This mode should be equivalent to the official keepass
+  *synchronize*, which does and `OVERWRITE_IF_NEWER`, Entry relocations, and
+  deletions.
+* **SYNCHRONIZE_3WAY** -- This mode is similar to `SYNCHRONIZE`, except that
+  corresponding Entries are merged on a per field basis.  This is desirable if
+  Entries in both the source and destination merge KDBs have diverged from
+  their common ancestor.
+
+See `samples/merge.py`_ for an example of merging two KDBs in libkeepass.  Keep
+in mind that merging modifies the KDB being merged into.  So make a copy if
+you need the original.
+
+.. _`samples/merge.py`: samples/merge.py
+
 Examples
 --------
 
@@ -77,11 +102,11 @@ Examples
    filename = "input.kdbx"
    with libkeepass.open(filename, password='secret', keyfile='keyfile.key') as kdb:
        # print parsed element tree as xml
-       print kdb.pretty_print()
+       print(kdb.pretty_print())
 
        # re-encrypt the password fields
        kdb.protect()
-       print kdb.pretty_print()
+       print(kdb.pretty_print())
 
        # or use kdb.obj_root to access the element tree
        kdb.obj_root.findall('.//Entry')
@@ -100,11 +125,11 @@ Examples
    # Alternatively, read a kdb4 file protected
    with libkeepass.open(filename, password='secret', keyfile='keyfile.key', unprotect=False) as kdb:
        # print parsed element tree as xml
-       print kdb.pretty_print()
+       print(kdb.pretty_print())
 
        # decrypt the password fields
        kdb.unprotect()
-       print kdb.pretty_print()
+       print(kdb.pretty_print())
 
 
 Testing
@@ -115,7 +140,7 @@ Make a virtualenv and install the requirements (or install through pip). Then ru
 .. code:: bash
 
    pip install -r requirements.txt
-   python tests/tests.py
+   python ./tests
 
 References
 ----------

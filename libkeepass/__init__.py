@@ -23,7 +23,9 @@ _kdb_readers = {
     libkeepass.kdb4.KDB4_SIGNATURE[1]: libkeepass.kdb4.KDB4Reader,
 }
 
-@contextmanager
+class UnknownKDBError(IOError): pass
+
+
 def open(filename, mode='rb+', **credentials):
     """
     A contextmanager to open the KeePass file with `filename`. Use a `password`
@@ -37,15 +39,26 @@ def open(filename, mode='rb+', **credentials):
     kdb = None
     try:
         with io.open(filename, mode) as stream:
-            signature = libkeepass.common.read_signature(stream)
-            cls = get_kdb_reader(signature)
-            kdb = cls(stream, **credentials)
-            yield kdb
-            kdb.close()
+            kdb = open_stream(stream, **credentials)
+            return kdb
     except:
         if kdb:
             kdb.close()
         raise
+
+
+def open_stream(stream, **credentials):
+    """
+    Create a keepass database reader object from a `stream`.
+    
+    Files are identified using their signature and a reader suitable for 
+    the file format is intialized and returned.
+    """
+    assert isinstance(stream, io.IOBase) or isinstance(stream, file)
+    signature = common.read_signature(stream)
+    cls = get_kdb_reader(signature)
+    kdb = cls(stream, **credentials)
+    return kdb
 
 
 def add_kdb_reader(sub_signature, cls):
@@ -71,10 +84,10 @@ def get_kdb_reader(signature):
     and the second the sub signature as integers.
     """
     if signature[0] != BASE_SIGNATURE:
-        raise IOError('Unknown base signature.')
+        raise UnknownKDBError('Unknown base signature.')
 
     if signature[1] not in _kdb_readers:
-        raise IOError('Unknown sub signature.')
+        raise UnknownKDBError('Unknown sub signature.')
 
     return _kdb_readers[signature[1]]
 

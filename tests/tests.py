@@ -10,7 +10,6 @@ import libkeepass
 import libkeepass.common
 import libkeepass.kdb4
 import libkeepass.kdb3
-import six
 
 
 from libkeepass.crypto import sha256, transform_key, xor, pad
@@ -18,6 +17,14 @@ from libkeepass.crypto import aes_cbc_decrypt, twofish_cbc_decrypt, twofish_cbc_
 from libkeepass.crypto import AES_BLOCK_SIZE
 from libkeepass.crypto import Salsa20
 
+from . import get_datafile
+
+
+def assertRaisesRegex(tcase, *args, **kwargs):
+    "Compatibility layer between python2/3"
+    if hasattr(tcase, 'assertRaisesRegex'):
+        return tcase.assertRaisesRegex(*args, **kwargs)
+    return tcase.assertRaisesRegexp(*args, **kwargs)
 
 class TextCrypto(unittest.TestCase):
     def test_sha256(self):
@@ -105,17 +112,17 @@ class TestModule(unittest.TestCase):
         self.assertEqual(libkeepass.get_kdb_reader([0x9AA2D903, 0xB54BFB67]), libkeepass.kdb4.KDB4Reader)
 
         # mythical pre2.x signature
-        with six.assertRaisesRegex(self, IOError, "Unknown sub signature."):
+        with assertRaisesRegex(self, IOError, "Unknown sub signature."):
             libkeepass.get_kdb_reader([0x9AA2D903, 0xB54BFB66, 3, 0])
 
         # unknown sub signature
-        with six.assertRaisesRegex(self, IOError, "Unknown sub signature."):
+        with assertRaisesRegex(self, IOError, "Unknown sub signature."):
             libkeepass.get_kdb_reader([0x9AA2D903, 0xB54BFB60, 3, 0])
         # valid sub signature, unknown base signature
-        with six.assertRaisesRegex(self, IOError, "Unknown base signature."):
+        with assertRaisesRegex(self, IOError, "Unknown base signature."):
             libkeepass.get_kdb_reader([0x9AA2D900, 0xB54BFB65, 3, 0])
         # unknown sub signature, unknown base signature
-        with six.assertRaisesRegex(self, IOError, "Unknown base signature."):
+        with assertRaisesRegex(self, IOError, "Unknown base signature."):
             libkeepass.get_kdb_reader([0x9AA2D900, 0xB54BFB60, 3, 0])
 
 
@@ -208,31 +215,31 @@ class TestCommon(unittest.TestCase):
         # assert False
 
 # created with KeePassX 0.4.3
-absfile2 = os.path.abspath('tests/sample7_kpx.kdb')
+absfile2 = get_datafile('sample7_kpx.kdb')
 # created with KeePass 2.19 on linux
-absfile1 = os.path.abspath('tests/sample1.kdbx')
-absfile3 = os.path.abspath('tests/sample2.kdbx')
-keyfile3 = os.path.abspath('tests/sample2_keyfile.key')
-absfile4 = os.path.abspath('tests/sample3.kdbx')
-keyfile4 = os.path.abspath('tests/sample3_keyfile.exe')
-absfile5 = os.path.abspath('tests/sample4.kdbx')
-keyfile5 = os.path.abspath('tests/sample3_keyfile.exe')
+absfile1 = get_datafile('sample1.kdbx')
+absfile3 = get_datafile('sample2.kdbx')
+keyfile3 = get_datafile('sample2_keyfile.key')
+absfile4 = get_datafile('sample3.kdbx')
+keyfile4 = get_datafile('sample3_keyfile.exe')
+absfile5 = get_datafile('sample4.kdbx')
+keyfile5 = get_datafile('sample3_keyfile.exe')
 # created with KeePass 2.32 on linux encrypted with twofish
-absfile6 = os.path.abspath('tests/sample8_twofish.kdbx')
+absfile6 = get_datafile('sample8_twofish.kdbx')
 # created with KeePass 2.38 on linux encrypted with chacha20
-absfile7 = os.path.abspath('tests/sample9_chacha20.kdbx')
+absfile7 = get_datafile('sample9_chacha20.kdbx')
 
-output1 = os.path.abspath('tests/output1.kdbx')
-output4 = os.path.abspath('tests/output4.kdbx')
+output1 = get_datafile('output1.kdbx')
+output4 = get_datafile('output4.kdbx')
 
 
 class TestKDB4(unittest.TestCase):
     def test_class_interface(self):
         """Test direct KDB4Reader class usage"""
         kdb = libkeepass.kdb4.KDB4Reader()
-        with six.assertRaisesRegex(self, TypeError, "Stream does not have the buffer interface."):
+        with assertRaisesRegex(self, TypeError, "Stream does not have the buffer interface."):
             kdb.read_from(absfile1)
-        with six.assertRaisesRegex(self, IndexError, "No credentials found."):
+        with assertRaisesRegex(self, IndexError, "No credentials found."):
             with open(absfile1, 'rb') as fh:
                 kdb.read_from(fh)
         kdb.add_credentials(password='asdf')
@@ -265,19 +272,19 @@ class TestKDB4(unittest.TestCase):
 
     def test_open_file(self):
         # file not found, proper exception gets re-raised
-        with six.assertRaisesRegex(self, IOError, "No such file or directory"):
+        with assertRaisesRegex(self, IOError, "No such file or directory"):
             with libkeepass.open(absfile1 + '.invalid', password="asdf"):
                 pass
         # invalid password
-        with six.assertRaisesRegex(self, IndexError, "No credentials found."):
+        with assertRaisesRegex(self, IndexError, "No credentials found."):
             with libkeepass.open(absfile1):
                 pass
         # invalid password
-        with six.assertRaisesRegex(self, IOError, "Master key invalid."):
+        with assertRaisesRegex(self, IOError, "Master key invalid."):
             with libkeepass.open(absfile1, password="invalid"):
                 pass
         # invalid keyfile
-        with six.assertRaisesRegex(self, IOError, "Master key invalid."):
+        with assertRaisesRegex(self, IOError, "Master key invalid."):
             with libkeepass.open(absfile1, password="invalid", keyfile="invalid"):
                 pass
 

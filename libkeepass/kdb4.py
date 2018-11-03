@@ -13,10 +13,11 @@ from libkeepass.crypto import (xor, sha256, aes_cbc_decrypt, aes_cbc_encrypt,
     twofish_cbc_decrypt, twofish_cbc_encrypt,
     transform_key, pad, unpad)
 
-from libkeepass.common import load_keyfile, stream_unpack
+from libkeepass.common import IS_PYTHON_3, load_keyfile, stream_unpack
 
 from libkeepass.common import KDBFile, HeaderDictionary
 from libkeepass.hbio import HashedBlockIO
+from libkeepass.utils.merge import KDB4UUIDMerge
 
 
 KDB4_SALSA20_IV = bytes(bytearray.fromhex('e830094b97205d2a'))
@@ -357,10 +358,20 @@ class KDBXmlExtension:
                 protected_text = self._protect(elem.text)
                 elem._setText(protected_text)
 
-    def pretty_print(self):
+    def is_protected(self):
+        """Return True if passwords are protected."""
+        protected = self.obj_root.Meta.MemoryProtection.ProtectPassword.text == 'True'
+        if protected:
+            assert len(self.obj_root.findall('.//Value[@Protected="False"]')) == 0
+        return protected
+
+    def pretty_print(self, print_=False):
         """Return a serialization of the element tree."""
-        return etree.tostring(self.obj_root, pretty_print=True,
-                              encoding='utf-8', standalone=True)
+        pp = etree.tostring(self.obj_root, pretty_print=True,
+                            encoding='utf-8', standalone=True)
+        if print_ and IS_PYTHON_3:
+            pp = str(pp, encoding='utf-8')
+        return pp
 
     def write_to(self, stream):
         """Serialize the element tree to the out-buffer."""
@@ -445,4 +456,10 @@ class KDB4Reader(KDB4File, KDBXmlExtension):
         if use_etree:
             KDBXmlExtension.write_to(self, stream)
         KDB4File.write_to(self, stream)
+
+    def merge(self, other, *args, **kwargs):
+        "Merge another database into this one."
+        kdbm = KDB4UUIDMerge(self, other, *args, **kwargs)
+        kdbm.merge()
+        return kdbm
 
