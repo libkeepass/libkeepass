@@ -1,9 +1,6 @@
 # -*- coding: utf-8 -*-
 
-import sys
 import codecs
-
-IS_PYTHON_3 = sys.hexversion >= 0x3000000
 
 # file header
 
@@ -156,11 +153,10 @@ class KDBFile(object):
         self.close()
 
     def _is_file(self, stream):
-        if isinstance(stream, io.IOBase):
-            return True
-        if not IS_PYTHON_3 and isinstance(stream, file):
-            return True
-        return False
+        try:
+            return isinstance(stream, (file, io.IOBase))
+        except NameError:  # file was removed in Python 3
+            return isinstance(stream, io.IOBase)
 
     def read_from(self, stream):
         if not self._is_file(stream):
