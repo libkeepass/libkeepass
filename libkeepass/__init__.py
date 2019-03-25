@@ -54,7 +54,10 @@ def open_stream(stream, **credentials):
     Files are identified using their signature and a reader suitable for 
     the file format is intialized and returned.
     """
-    assert isinstance(stream, io.IOBase) or isinstance(stream, file)
+    try:
+        assert isinstance(stream, (file, io.IOBase))
+    except NameError:  # file was removed in Python 3
+        assert isinstance(stream, io.IOBase)
     signature = common.read_signature(stream)
     cls = get_kdb_reader(signature)
     kdb = cls(stream, **credentials)
