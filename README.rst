@@ -139,8 +139,8 @@ Make a virtualenv and install the requirements (or install through pip). Then ru
 
 .. code:: bash
 
-   pip install -r requirements.txt
-   python ./tests
+   pip install -e .
+   python -m tests
 
 References
 ----------
