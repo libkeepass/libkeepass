@@ -2,8 +2,8 @@ from setuptools import setup
 
 setup(
     name="libkeepass",
-    version="0.3.0",
-    packages=["libkeepass"],
+    version="0.3.1-post1",
+    packages=["libkeepass", "libkeepass.utils"],
     author="Lukas Koell",
     author_email="phpwutz@gmail.com",
     description="A library to access KeePass 1.x/KeePassX (v3) and KeePass "

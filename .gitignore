@@ -25,6 +25,7 @@ pip-log.txt
 
 # tmp files
 *~
+tests/data/output*.kdbx
 
 #Mr Developer
 .mr.developer.cfg
