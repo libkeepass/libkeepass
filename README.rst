@@ -8,7 +8,7 @@ files.
 
 See `pykeepass`_ or `kppy`_ for higher level database access and editing.
 
-.. _`pykeepass`: https://github.com/pschmitt/pykeepass
+.. _`pykeepass`: https://github.com/libkeepass/pykeepass
 .. _`kppy`: https://github.com/raymontag/kppy
 
 Warning
