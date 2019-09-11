@@ -1,7 +1,7 @@
 libkeepass
 ==========
 
-**This library has been deprecated by** [pykeepass](http://github.com/libkeepass/pykeepass)
+**This library has been deprecated by** `pykeepass`_
 
 Low-level Python (2.7/3.x) module to read KeePass 1.x/KeePassX (.kdb) and KeePass 2.x (.kdbx v3)
 files.
