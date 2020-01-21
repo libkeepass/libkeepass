@@ -248,7 +248,7 @@ class KDB4Merge(KDBMerge):
 
     def _merge_roots(self):
         "Merge Root elements"
-        raise UnimplementedError("Must use subclass")
+        raise NotImplementedError("Must use subclass")
 
     def _merge_group_metadata(self, gdest, gsrc):
         "Merge metadata from source into dest group"
