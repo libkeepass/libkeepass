@@ -13,7 +13,7 @@ from libkeepass.crypto import (xor, sha256, aes_cbc_decrypt, aes_cbc_encrypt,
     twofish_cbc_decrypt, twofish_cbc_encrypt,
     transform_key, pad, unpad)
 
-from libkeepass.common import IS_PYTHON_3, load_keyfile, stream_unpack
+from libkeepass.common import IS_PYTHON_3, load_keyfile, stream_unpack, read_signature
 
 from libkeepass.common import KDBFile, HeaderDictionary
 from libkeepass.hbio import HashedBlockIO
@@ -111,8 +111,12 @@ class KDB4File(KDBFile):
         # file version is too high), the last 2 bytes are informational.
         # TODO implement version check
 
-        # the first header field starts at byte 12 after the signature
-        stream.seek(12)
+        # verify the file signature
+        signature = read_signature(stream)
+        assert signature == KDB4_SIGNATURE, signature
+
+        # read the file version
+        stream.read(4)
 
         while True:
             # field_id is a single byte
