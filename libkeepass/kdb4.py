@@ -126,7 +126,7 @@ class KDB4File(KDBFile):
 
             # field_id >10 is undefined
             if not field_id in self.header.fields.values():
-                raise IOError('Unknown header field found.')
+                raise IOError('Unknown header field %x found.' % field_id)
 
             # two byte (short) length of field data
             if self.file_version < FILEVERSION_4:
