@@ -10,7 +10,7 @@ setup(
                 "2.x (v4) files",
     license="GPL",
     keywords="keepass library",
-    url="https://github.com/phpwutz/libkeepass",  # project home page, if any
+    url="https://github.com/libkeepass/libkeepass",  # project home page, if any
     test_suite="tests",
     install_requires=[
         "lxml>=3.2.1",
