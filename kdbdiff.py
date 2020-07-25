@@ -3,13 +3,19 @@
 import sys
 import argparse
 import getpass
-import xml.etree.ElementTree as ET
 
 try:
     import libkeepass
-    import libkeepass.utils
-except ImportError:
+    from libkeepass.utils.convert import convert_kdb3_to_kxml4
+    # The etree module from libkeepass should always be used, otherwise an
+    # element created by one module could be operated on by another module
+    # which can cause bugs.
+    from libkeepass.kdb4 import etree as ET
+except ImportError, e:
+    import warnings
+    import xml.etree.ElementTree as ET
     libkeepass = None
+    warnings.warn("Failed to load libkeepass module, diffing only available for xml files: %s"%str(e), RuntimeWarning)
 
 
 def kp_partition_els(els1, els2, func):
