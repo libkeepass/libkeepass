@@ -47,6 +47,10 @@ class KDB4Header(HeaderDictionary):
         'StreamStartBytes': 9,
         # cipher used to protect data in xml (ARC4 or Salsa20)
         'InnerRandomStreamID': 10,
+        # KDBX 4, superseding Transform*
+        'KdfParameters': 11,
+        # KDBX 4
+        'PublicCustomData': 12,
     }
 
     fmt = {3: '<I', 6: '<q', 10: '<I'}
