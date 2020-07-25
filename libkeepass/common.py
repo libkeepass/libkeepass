@@ -144,6 +144,8 @@ class KDBFile(object):
         # encryption masterkey. if this is True `in_buffer` must contain
         # clear data.
         self.opened = False
+        
+        assert self.__class__ != KDBFile, "Must use subclass of KDBFile"
 
         # the raw/basic file handle, expect it to be closed after __init__!
         if stream is not None:
