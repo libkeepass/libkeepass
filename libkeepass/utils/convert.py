@@ -26,7 +26,11 @@ def convert_kdb3_to_kxml4(kdb3):
     <Meta>
         <Generator>libkeepass (python)</Generator>
         <DatabaseName></DatabaseName>
-        <DatabaseNameChanged></DatabaseNameChanged>
+        <DatabaseNameChanged>{0:%Y-%m-%dT%H:%M:%S}Z</DatabaseNameChanged>
+        <DatabaseDescription />
+        <DatabaseDescriptionChanged>{0:%Y-%m-%dT%H:%M:%S}Z</DatabaseDescriptionChanged>
+        <DefaultUserName />
+        <DefaultUserNameChanged>{0:%Y-%m-%dT%H:%M:%S}Z</DefaultUserNameChanged>
         <MemoryProtection>
             <ProtectTitle>False</ProtectTitle>
             <ProtectUserName>False</ProtectUserName>
@@ -34,10 +38,12 @@ def convert_kdb3_to_kxml4(kdb3):
             <ProtectURL>False</ProtectURL>
             <ProtectNotes>False</ProtectNotes>
         </MemoryProtection>
+        <EntryTemplatesGroup>AAAAAAAAAAAAAAAAAAAAAA==</EntryTemplatesGroup>
+        <EntryTemplatesGroupChanged>{0:%Y-%m-%dT%H:%M:%S}Z</EntryTemplatesGroupChanged>
     </Meta>
     <Root>
     </Root>
-</KeePassFile>""")
+</KeePassFile>""".format(datetime.datetime(2999, 12, 28, 23, 59, 59)))
     
     doc4.find('.//DatabaseName').text = 'converted'
     root = doc4.find('Root')
@@ -91,6 +97,8 @@ def convert_kdb3_to_kxml4(kdb3):
         <LastAccessTime>{accessed:%Y-%m-%dT%H:%M:%S}Z</LastAccessTime>
         <ExpiryTime>{expires:%Y-%m-%dT%H:%M:%S}Z</ExpiryTime>
         <Expires>{expire_valid}</Expires>
+        <UsageCount>0</UsageCount>
+        <LocationChanged>{created:%Y-%m-%dT%H:%M:%S}Z</LocationChanged>
     </Times>
     <IsExpanded>{expanded}</IsExpanded>
     <EnableAutoType>{enable_auto_type}</EnableAutoType>
@@ -122,6 +130,8 @@ def convert_kdb3_to_kxml4(kdb3):
         <LastAccessTime>{accessed:%Y-%m-%dT%H:%M:%S}Z</LastAccessTime>
         <ExpiryTime>{expires:%Y-%m-%dT%H:%M:%S}Z</ExpiryTime>
         <Expires>{expire_valid}</Expires>
+        <UsageCount>0</UsageCount>
+        <LocationChanged>{created:%Y-%m-%dT%H:%M:%S}Z</LocationChanged>
     </Times>
 </Entry>""".format(**entry))
         

@@ -131,6 +131,17 @@ Examples
        kdb.unprotect()
        print(kdb.pretty_print())
 
+Tools
+-------
+
+**kdbdiff** - Diff two keepass files
+
+Currently the two file arguments can be KDB v3 or v4 databases or KDB v4
+xml file. KDB v3 xml files can be supported natively once an importer is
+written that creates a KDB3File from the v3 xml.
+NOTE: This does a diff based on the entry name and path. So entries that
+are moved will show up as added and deleted, even though the entries may be
+identical other than their path.
 
 Tools
 -------
