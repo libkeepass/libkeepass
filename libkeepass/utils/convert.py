@@ -156,6 +156,7 @@ def convert_kdb3_to_kdb4(kdb3):
         raise IOError('Unsupported encryption type: %s'%ciphername)
     
     kdb4 = libkeepass.kdb4.KDB4Reader()
+    kdb4.file_version = 0x00030001
     kdb4.header.EndOfHeader = b'\r\n\r\n'
     #~ kdb4.header.Comment = 
     kdb4.header.CipherID = cipherid
@@ -167,7 +168,7 @@ def convert_kdb3_to_kdb4(kdb3):
     kdb4.header.EncryptionIV = os.urandom(16)
     kdb4.header.ProtectedStreamKey = os.urandom(32)
     kdb4.header.StreamStartBytes = os.urandom(32)
-    kdb4.header.InnerRandomStreamID = 2
+    kdb4.header.InnerRandomStreamID = 2 # Salsa20
     
     kdb4.keys = kdb3.keys[:]
     kdb4.in_buffer = io.BytesIO(lxml.etree.tostring(kxml4))

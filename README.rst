@@ -78,7 +78,7 @@ Currently 3 merge modes are supported:
 * **OVERWRITE_IF_NEWER** -- Entries are updated if there is a newer one in the
   KDB being merged with and the previous entry is added to the entry history.
   No Entry relocations nor deletions are done.
-* **SYNCHRONIZE** - This mode should be equivalent to the official keepass
+* **SYNCHRONIZE** -- This mode should be equivalent to the official keepass
   *synchronize*, which does and `OVERWRITE_IF_NEWER`, Entry relocations, and
   deletions.
 * **SYNCHRONIZE_3WAY** -- This mode is similar to `SYNCHRONIZE`, except that
@@ -130,6 +130,23 @@ Examples
        # decrypt the password fields
        kdb.unprotect()
        print(kdb.pretty_print())
+
+
+Tools
+-------
+
+**shell** -- Basic command line shell to view a keepass database
+
+**kdbutil** -- Utility to manipulate keepass databases with the following subcommands:
+
+* **convert4** -- Convert a KDB v3 database to v4 format.  This is better than
+  keepassx's (current) importer because it keeps entry uuids unique
+  across multiple conversions of the same KDB v3 database.
+
+* **dump** -- Dump the inner xml of the keepass database.
+  WARNING: This will print passwords in clear-text.
+
+* **shell** -- another simple shell for manipulating keepass database files.
 
 
 Testing

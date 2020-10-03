@@ -13,7 +13,7 @@ from libkeepass.crypto import (xor, sha256, aes_cbc_decrypt, aes_cbc_encrypt,
     twofish_cbc_decrypt, twofish_cbc_encrypt,
     transform_key, pad, unpad)
 
-from libkeepass.common import IS_PYTHON_3, load_keyfile, stream_unpack
+from libkeepass.common import IS_PYTHON_3, load_keyfile, stream_unpack, read_signature
 
 from libkeepass.common import KDBFile, HeaderDictionary
 from libkeepass.hbio import HashedBlockIO
@@ -22,6 +22,7 @@ from libkeepass.utils.merge import KDB4UUIDMerge
 
 KDB4_SALSA20_IV = bytes(bytearray.fromhex('e830094b97205d2a'))
 KDB4_SIGNATURE = (0x9AA2D903, 0xB54BFB67)
+FILEVERSION_4 = 0x00040000
 
 
 class KDB4Header(HeaderDictionary):
@@ -46,6 +47,10 @@ class KDB4Header(HeaderDictionary):
         'StreamStartBytes': 9,
         # cipher used to protect data in xml (ARC4 or Salsa20)
         'InnerRandomStreamID': 10,
+        # KDBX 4, superseding Transform*
+        'KdfParameters': 11,
+        # KDBX 4
+        'PublicCustomData': 12,
     }
 
     fmt = {3: '<I', 6: '<q', 10: '<I'}
@@ -106,13 +111,18 @@ class KDB4File(KDBFile):
         # KeePass 2.07 has version 1.01,
         # 2.08 has 1.02,
         # 2.09 has 2.00, 2.10 has 2.02, 2.11 has 2.04,
-        # 2.15 has 3.00.
+        # 2.15 has 3.00, 2.20 has 3.01.
+        # By 2.38 KeePass will use version 4.00 if certain conditions are true.
         # The first 2 bytes are critical (i.e. loading will fail, if the
         # file version is too high), the last 2 bytes are informational.
         # TODO implement version check
 
-        # the first header field starts at byte 12 after the signature
-        stream.seek(12)
+        # verify the file signature
+        signature = read_signature(stream)
+        assert signature == KDB4_SIGNATURE, signature
+
+        # read the file version
+        self.file_version = stream_unpack(stream, None, 4, 'I')
 
         while True:
             # field_id is a single byte
@@ -120,10 +130,13 @@ class KDB4File(KDBFile):
 
             # field_id >10 is undefined
             if not field_id in self.header.fields.values():
-                raise IOError('Unknown header field found.')
+                raise IOError('Unknown header field %x found.' % field_id)
 
             # two byte (short) length of field data
-            length = stream_unpack(stream, None, 2, 'h')
+            if self.file_version < FILEVERSION_4:
+                length = stream_unpack(stream, None, 2, 'H')
+            else:
+                length = stream_unpack(stream, None, 4, 'I')
             if length > 0:
                 data = stream_unpack(stream, None, length, '{}s'.format(length))
                 self.header.b[field_id] = data
@@ -133,13 +146,16 @@ class KDB4File(KDBFile):
                 self.header_length = stream.tell()
                 break
 
+        if self.file_version >= FILEVERSION_4:
+            raise NotImplementedError("File version 4 support currently unimplemented.")
+
     def _header(self):
         # serialize header to stream
         header = bytearray()
         # write file signature
         header.extend(struct.pack('<II', *KDB4_SIGNATURE))
         # and version
-        header.extend(struct.pack('<hh', 1, 3))
+        header.extend(struct.pack('<I', self.file_version))
 
         field_ids = list(self.header.keys())
         field_ids.sort()
@@ -148,8 +164,14 @@ class KDB4File(KDBFile):
             value = self.header.b[field_id]
             length = len(value)
             header.extend(struct.pack('<b', field_id))
-            header.extend(struct.pack('<h', length))
+            if self.file_version < FILEVERSION_4:
+                header.extend(struct.pack('<H', length))
+            else:
+                header.extend(struct.pack('<I', length))
             header.extend(struct.pack('{}s'.format(length), value))
+
+        if self.file_version >= FILEVERSION_4:
+            raise NotImplementedError("File version 4 support currently unimplemented.")
 
         return header
 

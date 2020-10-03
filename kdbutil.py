@@ -136,6 +136,7 @@ def kdbfile_shell(args):
                 print(ex)
     else:
         del creds_list
+        print("Opened kdb files are in the list variable 'kdbfiles'.")
         code.interact(local=dict(kdbfiles=kdbfiles))
 
 def kdbfile_convert4(args):

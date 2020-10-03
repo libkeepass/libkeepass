@@ -13,7 +13,7 @@ from binascii import * # for entry id
 from libkeepass.crypto import xor, sha256, aes_cbc_decrypt, twofish_cbc_decrypt
 from libkeepass.crypto import transform_key, unpad
 
-from libkeepass.common import IS_PYTHON_3, load_keyfile, stream_unpack
+from libkeepass.common import IS_PYTHON_3, load_keyfile, stream_unpack, read_signature
 from libkeepass.common import KDBFile, HeaderDictionary
 
 
@@ -75,8 +75,10 @@ class KDB3File(KDBFile):
         """
         # kdb3 has a fixed header length
         self.header_length = 124
-        # skip file signature
-        stream.seek(8)
+
+        # verify the file signature
+        signature = read_signature(stream)
+        assert signature == KDB3_SIGNATURE, signature
 
         for field_id, length in enumerate(self.header.lengths):
             data = stream_unpack(stream, None, length, '{}s'.format(length))
